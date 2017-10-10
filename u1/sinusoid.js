@@ -97,7 +97,7 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
     */
 
     // Compute the rotation angle
-    var rotAngle = ( Math.PI/180*t ) % (Math.PI*2);
+    var rotAngle = ( (Math.PI/180)*t ) % (Math.PI*2);
 
     // Draw the rotating link
     ctx.save();
@@ -109,45 +109,59 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
 
     // Draw other links according to the Law of Cosines
     // get the lenght of the center imaginary line, which divides the structure into 2 triangles.
-    var centerSide = getSideByCosines(rotAngle % Math.PI, gLink.width, aLink.width);
+    var centerSide = getSideByCosines(rotAngle, gLink.width, aLink.width);
 
     // get angles in the 1st triangle (mainLink, aLink, centerSide): 
     // before the main link (b) and before the aLink (c).
-    var tri1 = { a: rotAngle % Math.PI,
-                 b: getAlphaByCosines(gLink.width, aLink.width, centerSide),
-                 c: getAlphaByCosines(aLink.width, gLink.width, centerSide) };
+    var tri1 = { centerSide: rotAngle,
+                 gLink: getAlphaByCosines(gLink.width, aLink.width, centerSide),
+                 aLink: getAlphaByCosines(aLink.width, gLink.width, centerSide) };
     
     // get the coordinates of the fLink start position
-    var cx = Math.cos(rotAngle) * aLink.width;
-    var cy = Math.sin(rotAngle) * aLink.width;
+    var fLinkStart = { x: Math.cos(rotAngle) * aLink.width,
+                       y: Math.sin(rotAngle) * aLink.width };
 
     // bLink start coords are already known : the end of the mainLink.
 
     // Now get the angles of the 2nd triangle (centerLink, fLink, bLink):
     // before the centerLink (a), before the fLink (b), before the bLink (c).
-    var tri2 = { a: getAlphaByCosines(centerSide, fLink.width, bLink.width),
-                 b: getAlphaByCosines(fLink.width, bLink.width, centerSide),
-                 c: getAlphaByCosines(bLink.width, fLink.width, centerSide) }
+    var tri2 = { centerSide: getAlphaByCosines(centerSide, fLink.width, bLink.width),
+                 fLink: getAlphaByCosines(fLink.width, bLink.width, centerSide),
+                 bLink: getAlphaByCosines(bLink.width, fLink.width, centerSide) }
     
 
     // Now let's start drawing stuff!
-    // Draw the fLink (on which the triangle will do it's job too btw)
-/*
-    ctx.save();
-    ctx.translate(startOffset.x + cx, startOffset.y + cy);
-    ctx.rotate(tri1.b + tri2.c + Math.PI);
-    draw(fLink, ctx);
+    // Get bLink rotation angle, and then coordinates of bLink (and fLink) endpoint. 
+    var bLinkRotation = (rotAngle <= Math.PI) ? 
+                        (Math.PI - tri1.aLink - tri2.fLink) : 
+                        (Math.PI - (tri2.fLink - tri1.aLink));
 
-    ctx.restore();
-*/
+    var fLinkEndpoint = (bLinkRotation <= Math.PI) ?
+
+                        ( { x: Math.cos( Math.PI - bLinkRotation ) * bLink.width,
+                            y: Math.sin( Math.PI - bLinkRotation ) * bLink.width } ) :
+
+                        ( { x: Math.cos( Math.PI*2 - bLinkRotation ) * bLink.width,
+                            y: Math.sin( Math.PI*2 - bLinkRotation ) * bLink.width } ) ;
+
+
     // Draw the bLink
     ctx.save();
     ctx.translate(startOffset.x + gLink.width, startOffset.y);
-    ctx.rotate( (rotAngle <= Math.PI) ? (Math.PI - tri1.c - tri2.b) : (-tri1.c - tri2.b) );
+    ctx.rotate( bLinkRotation );
     draw(bLink, ctx);
 
     ctx.restore();
 
+    // Draw the fLink (on which the triangle will do it's job too btw)
+/*
+    ctx.save();
+    ctx.translate(startOffset.x + cx, startOffset.y + cy);
+    ctx.rotate(  );
+    draw(fLink, ctx);
+
+    ctx.restore();
+*/
 
     /*
     ctx.save(); // [M0]
@@ -195,7 +209,7 @@ var aLink = {
 
 var bLink = {
     color: '#FF8ED6',
-    width: 160,
+    width: 130,
     off: 10,
     borderWidth: 4,
     x1: 0, y1: 0,
@@ -205,7 +219,7 @@ var bLink = {
 
 var cLink = {
     color: '#00FF00',
-    width: 250,
+    width: 280,
     off: 10,
     borderWidth: 4,
     x1: 0, y1: 0,
@@ -214,7 +228,7 @@ var cLink = {
 
 var dLink = {
     color: '#1199BB',
-    width: 210,
+    width: 180,
     off: 10,
     borderWidth: 4,
     x1: 0, y1: 0,
