@@ -59,9 +59,9 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
     // check for errors according to Grashof condition.
     // We are simulating only Crank-type input link (aLink). So remove all other possibilities.
     
-    if( !((Math.sign(gLink.width + fLink.width - aLink.width - bLink.width) === 
-           Math.sign(gLink.width - fLink.width - aLink.width + bLink.width)) && 
-           (-gLink.width + fLink.width - aLink.width + bLink.width > 0)) )
+    if(!( ( (gLink.width + fLink.width - aLink.width - bLink.width >= 0 && gLink.width - fLink.width - aLink.width + bLink.width >= 0) || 
+            (gLink.width + fLink.width - aLink.width - bLink.width < 0 && gLink.width - fLink.width - aLink.width + bLink.width < 0) ) && 
+          (-gLink.width + fLink.width - aLink.width + bLink.width >= 0) ))
     {
         throw "Bad ConFiguration: g: "+gLink.width+", a: "+aLink.width+", f: "+fLink.width+", b: "+bLink.width;
     }
@@ -70,7 +70,6 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
     var time = (new Date()).getTime() - startTime;
     var t = time / (100/rotationSpeed)
 
-    var rotAngle = Math.PI/180*t;
     var startOffset = {x: canvas.width/2 - gLink.width/2, y: canvas.height/2};
 
     // clear
@@ -97,6 +96,9 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
     drawLineArray(aLink.lineCoords, ctx);
     */
 
+    // Compute the rotation angle
+    var rotAngle = ( Math.PI/180*t ) % (Math.PI*2);
+
     // Draw the rotating link
     ctx.save();
     ctx.translate(startOffset.x, startOffset.y);
@@ -107,11 +109,11 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
 
     // Draw other links according to the Law of Cosines
     // get the lenght of the center imaginary line, which divides the structure into 2 triangles.
-    var centerSide = getSideByCosines(rotAngle, gLink.width, aLink.width);
+    var centerSide = getSideByCosines(rotAngle % Math.PI, gLink.width, aLink.width);
 
     // get angles in the 1st triangle (mainLink, aLink, centerSide): 
     // before the main link (b) and before the aLink (c).
-    var tri1 = { a: rotAngle,
+    var tri1 = { a: rotAngle % Math.PI,
                  b: getAlphaByCosines(gLink.width, aLink.width, centerSide),
                  c: getAlphaByCosines(aLink.width, gLink.width, centerSide) };
     
@@ -130,17 +132,18 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
 
     // Now let's start drawing stuff!
     // Draw the fLink (on which the triangle will do it's job too btw)
+/*
     ctx.save();
     ctx.translate(startOffset.x + cx, startOffset.y + cy);
     ctx.rotate(tri1.b + tri2.c + Math.PI);
     draw(fLink, ctx);
 
     ctx.restore();
-
+*/
     // Draw the bLink
     ctx.save();
     ctx.translate(startOffset.x + gLink.width, startOffset.y);
-    ctx.rotate(Math.PI - tri1.c - tri2.b);
+    ctx.rotate( (rotAngle <= Math.PI) ? (Math.PI - tri1.c - tri2.b) : (-tri1.c - tri2.b) );
     draw(bLink, ctx);
 
     ctx.restore();
@@ -192,7 +195,7 @@ var aLink = {
 
 var bLink = {
     color: '#FF8ED6',
-    width: 150,
+    width: 160,
     off: 10,
     borderWidth: 4,
     x1: 0, y1: 0,
