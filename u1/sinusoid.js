@@ -117,12 +117,6 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
                  gLink: getAlphaByCosines(gLink.width, aLink.width, centerSide),
                  aLink: getAlphaByCosines(aLink.width, gLink.width, centerSide) };
     
-    // get the coordinates of the fLink start position
-    var fLinkStart = { x: Math.cos(rotAngle) * aLink.width,
-                       y: Math.sin(rotAngle) * aLink.width };
-
-    // bLink start coords are already known : the end of the mainLink.
-
     // Now get the angles of the 2nd triangle (centerLink, fLink, bLink):
     // before the centerLink (a), before the fLink (b), before the bLink (c).
     var tri2 = { centerSide: getAlphaByCosines(centerSide, fLink.width, bLink.width),
@@ -136,6 +130,7 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
                         (Math.PI - tri1.aLink - tri2.fLink) : 
                         (Math.PI - (tri2.fLink - tri1.aLink));
 
+    // get coords of flink end position (according to bLink rotation)
     var fLinkEndpoint = (bLinkRotation <= Math.PI) ?
 
                         ( { x: Math.cos( Math.PI - bLinkRotation ) * bLink.width,
@@ -144,43 +139,29 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
                         ( { x: Math.cos( Math.PI*2 - bLinkRotation ) * bLink.width,
                             y: Math.sin( Math.PI*2 - bLinkRotation ) * bLink.width } ) ;
 
+    // get the coordinates of the fLink start position
+    var fLinkStart = { x: Math.cos(rotAngle) * aLink.width,
+                       y: Math.sin(rotAngle) * aLink.width };
+
+    // finally, get fLink rotation angle. (arctangent of Y / X) (coordinates of start and end used here)
+    var fLinkRotation = Math.atan( (fLinkEndpoint.y - fLinkStart.y) / 
+                                   ((gLink.width - fLinkEndpoint.x) - fLinkStart.x) );
+
 
     // Draw the bLink
     ctx.save();
     ctx.translate(startOffset.x + gLink.width, startOffset.y);
     ctx.rotate( bLinkRotation );
     draw(bLink, ctx);
-
     ctx.restore();
 
     // Draw the fLink (on which the triangle will do it's job too btw)
-/*
     ctx.save();
-    ctx.translate(startOffset.x + cx, startOffset.y + cy);
-    ctx.rotate(  );
+    ctx.translate(startOffset.x + fLinkStart.x, startOffset.y + fLinkStart.y);
+    ctx.rotate( fLinkRotation );
     draw(fLink, ctx);
-
     ctx.restore();
-*/
 
-    /*
-    ctx.save(); // [M0]
-    ctx.save(); // [M0,M0]
-    ctx.translate(canvas.width/2+ 100 ,canvas.height/2);
-    ctx.rotate(Math.PI/180*t); 
-    draw(gLink, ctx);
-    ctx.restore();  // M0 [M0]		
-    ctx.translate(canvas.width/2-100,canvas.height/2);
-    ctx.save();  // [M1,M0]
-    ctx.rotate(Math.PI/180*t); 
-    draw(bLink, ctx);
-    ctx.translate(gLink.width,0);
-    ctx.rotate(-Math.PI/180*t);
-    draw(fLink, ctx);
-    ctx.restore(); // M1 [M0] 
-    draw(bLink, ctx);
-    ctx.restore(); // M0 [] 
-    */
 
     // request new frame
     requestAnimFrame(function() {
