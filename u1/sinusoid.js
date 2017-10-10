@@ -24,9 +24,9 @@ function draw(myLink, ctx) {
     ctx.fill();
 }
 
-function drawTriangle(hei, wid, color){
+function drawTriangle(ctx, hei, wid, color){
     ctx.beginPath();
-    ctx.fillStyle = color();
+    ctx.fillStyle = color;
     ctx.moveTo(0,0);
     ctx.lineTo(wid,0);
     ctx.lineTo(wid/2, hei);
@@ -55,7 +55,7 @@ function getSideByCosines(alpha, b, c) {
     return Math.sqrt( Math.pow(b,2) + Math.pow(c,2) - 2*b*c*Math.cos(alpha) );
 }
 
-function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
+function animate(gLink, aLink, fLink, bLink, lineCoords, canvas, ctx, startTime) {
     // check for errors according to Grashof condition.
     // We are simulating only Crank-type input link (aLink). So remove all other possibilities.
     
@@ -70,7 +70,7 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
     var time = (new Date()).getTime() - startTime;
     var t = time / (100/rotationSpeed)
 
-    var startOffset = {x: canvas.width/2 - gLink.width/2, y: canvas.height/2};
+    var startOffset = {x: canvas.width/1.8 - gLink.width/2, y: canvas.height/2.7};
 
     // clear
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -82,20 +82,7 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
 
     ctx.restore();
 
-    // Compute and draw the aLink
-
-    /*aLink.x1 = aLink.x2;    
-    aLink.y1 = aLink.y2;   
-    aLink.x2 = canvas.width/2 - gLink.width/2 + (aLink.width * Math.cos(rotAngle));
-    aLink.y2 = canvas.height/2 + (aLink.width * Math.sin(rotAngle));
-
-    aLink.lineCoords.push({x1:aLink.x1, y1:aLink.y1, x2:aLink.x2, y2:aLink.y2 });
-    if(aLink.lineCoords.length > 50)
-        aLink.lineCoords.shift();
-
-    drawLineArray(aLink.lineCoords, ctx);
-    */
-
+    
     // Compute the rotation angle
     var rotAngle = ( (Math.PI/180)*t ) % (Math.PI*2);
 
@@ -159,13 +146,33 @@ function animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime) {
     ctx.save();
     ctx.translate(startOffset.x + fLinkStart.x, startOffset.y + fLinkStart.y);
     ctx.rotate( fLinkRotation );
+
     draw(fLink, ctx);
+
+    // Draw triangle with a line
+    var triHeight = 60;
+    drawTriangle(ctx, triHeight, fLink.width, '#667788');
     ctx.restore();
+
+    var triAlpha = Math.PI/2 - Math.atan( triHeight/(fLink.width/2) ) - fLinkRotation;
+    var triHypo = Math.sqrt( Math.pow(triHeight, 2) + Math.pow(fLink.width/2, 2) );
+
+    // Now draw a line originating from the tip of the triangle.
+    var triangleTip = { x2: Math.sin(triAlpha) * triHypo + startOffset.x + fLinkStart.x,
+                        y2: Math.cos(triAlpha) * triHypo + startOffset.y + fLinkStart.y,
+                        x1: lineCoords[lineCoords.length-1].x2,
+                        y1: lineCoords[lineCoords.length-1].y2 }
+
+    lineCoords.push( triangleTip );
+    if(lineCoords.length > 150)
+        lineCoords.shift();
+
+    drawLineArray(lineCoords, ctx);
 
 
     // request new frame
     requestAnimFrame(function() {
-      animate(gLink, aLink, fLink, bLink, canvas, ctx, startTime);
+      animate(gLink, aLink, fLink, bLink, lineCoords, canvas, ctx, startTime);
     });
 }
 
@@ -183,9 +190,6 @@ var aLink = {
     width: 300,
     off: 10,
     borderWidth: 4,
-
-    x1: 0, y1: 0,
-    x2: 0, y2: 0
 };
 
 var bLink = {
@@ -193,9 +197,6 @@ var bLink = {
     width: 130,
     off: 10,
     borderWidth: 4,
-    x1: 0, y1: 0,
-    x2: 0, y2: 0,
-    lineCoords: [{x1: canvas.width/2 - aLink.width/2, y1: canvas.height/2, x2: canvas.width/2 - aLink.width/2, y2: canvas.height/2}]
 };
 
 var cLink = {
@@ -203,8 +204,6 @@ var cLink = {
     width: 280,
     off: 10,
     borderWidth: 4,
-    x1: 0, y1: 0,
-    x2: 0, y2: 0
 };
 
 var dLink = {
@@ -212,8 +211,6 @@ var dLink = {
     width: 180,
     off: 10,
     borderWidth: 4,
-    x1: 0, y1: 0,
-    x2: 0, y2: 0
 };
 
 
@@ -222,7 +219,7 @@ var startTime = (new Date()).getTime();
 
 // Call our animation function.
 try {
-    animate(aLink, bLink, cLink, dLink, canvas, ctx, startTime);
+    animate(aLink, bLink, cLink, dLink, [ {x1:0, y1:0, x2:0, y2:0} ], canvas, ctx, startTime);
 } catch(e) {
     alert(e);
 }
