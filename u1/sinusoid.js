@@ -24,6 +24,7 @@ function draw(myLink, ctx) {
     ctx.fill();
 }
 
+<<<<<<< HEAD
 function getAlphaByCosines(a, b, c) {
     return Math.acos( (Math.pow(b,2) + Math.pow(c,2) - Math.pow(a,2)) / (2*b*c) );
 }
@@ -41,6 +42,14 @@ function drawTriangle(ctx, ground, a, b, color){
     var beta = getAlphaByCosines(b, a, ground);
 
     ctx.lineTo( Math.cos(beta)*a, Math.sin(beta)*a );
+=======
+function drawTriangle(ctx, hei, wid, color){
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.moveTo(0,0);
+    ctx.lineTo(wid,0);
+    ctx.lineTo(wid/2, hei);
+>>>>>>> ad3b650ebd166b30b0a8eb74d94aed6617ff0c3c
     ctx.fill();
 }
 
@@ -58,8 +67,20 @@ function drawLineArray(array, ctx) {
     }
 }
 
+<<<<<<< HEAD
 function animate(gLink, aLink, fLink, bLink, lineCoords, triangleSpecs, rotationProps, canvas, ctx, startTime) {    
 
+=======
+function getAlphaByCosines(a, b, c) {
+    return Math.acos( (Math.pow(b,2) + Math.pow(c,2) - Math.pow(a,2)) / (2*b*c) );
+}
+
+function getSideByCosines(alpha, b, c) {
+    return Math.sqrt( Math.pow(b,2) + Math.pow(c,2) - 2*b*c*Math.cos(alpha) );
+}
+
+function animate(gLink, aLink, fLink, bLink, lineCoords, canvas, ctx, startTime) {
+>>>>>>> ad3b650ebd166b30b0a8eb74d94aed6617ff0c3c
     // check for errors according to Grashof condition.
     // We are simulating only Crank-type input link (aLink). So remove all other possibilities.
     
@@ -72,7 +93,11 @@ function animate(gLink, aLink, fLink, bLink, lineCoords, triangleSpecs, rotation
 
     // update
     var time = (new Date()).getTime() - startTime;
+<<<<<<< HEAD
     var t = time / (100/rotationProps.speed)
+=======
+    var t = time / (100/rotationSpeed)
+>>>>>>> ad3b650ebd166b30b0a8eb74d94aed6617ff0c3c
 
     var startOffset = {x: canvas.width/1.8 - gLink.width/2, y: canvas.height/2.7};
 
@@ -154,12 +179,21 @@ function animate(gLink, aLink, fLink, bLink, lineCoords, triangleSpecs, rotation
     draw(fLink, ctx);
 
     // Draw triangle with a line
+<<<<<<< HEAD
     drawTriangle(ctx, fLink.width, triangleSpecs.a, triangleSpecs.b, '#667788');
     ctx.restore();
 
     var triAlpha = Math.PI/2 - fLinkRotation - 
                    getAlphaByCosines(triangleSpecs.b, triangleSpecs.a, fLink.width);
     var triHypo = triangleSpecs.a; /*Math.sqrt( Math.pow(triHeight, 2) + Math.pow(fLink.width/2, 2) );*/
+=======
+    var triHeight = 60;
+    drawTriangle(ctx, triHeight, fLink.width, '#667788');
+    ctx.restore();
+
+    var triAlpha = Math.PI/2 - Math.atan( triHeight/(fLink.width/2) ) - fLinkRotation;
+    var triHypo = Math.sqrt( Math.pow(triHeight, 2) + Math.pow(fLink.width/2, 2) );
+>>>>>>> ad3b650ebd166b30b0a8eb74d94aed6617ff0c3c
 
     // Now draw a line originating from the tip of the triangle.
     var triangleTip = { x2: Math.sin(triAlpha) * triHypo + startOffset.x + fLinkStart.x,
@@ -168,7 +202,11 @@ function animate(gLink, aLink, fLink, bLink, lineCoords, triangleSpecs, rotation
                         y1: lineCoords[lineCoords.length-1].y2 }
 
     lineCoords.push( triangleTip );
+<<<<<<< HEAD
     if(lineCoords.length > 200)
+=======
+    if(lineCoords.length > 150)
+>>>>>>> ad3b650ebd166b30b0a8eb74d94aed6617ff0c3c
         lineCoords.shift();
 
     drawLineArray(lineCoords, ctx);
@@ -176,6 +214,7 @@ function animate(gLink, aLink, fLink, bLink, lineCoords, triangleSpecs, rotation
 
     // request new frame
     requestAnimFrame(function() {
+<<<<<<< HEAD
       animate(gLink, aLink, fLink, bLink, lineCoords, triangleSpecs, rotationProps, canvas, ctx, startTime);
     });
 }
@@ -260,3 +299,58 @@ function applyValues(){
 }
 
 */
+=======
+      animate(gLink, aLink, fLink, bLink, lineCoords, canvas, ctx, startTime);
+    });
+}
+
+// Canvas
+var canvas = document.getElementById('myCanvas');
+var ctx = canvas.getContext('2d');
+
+// Speed properties
+var rotationSpeed = 10;
+
+// Link styles
+
+var aLink = {
+    color: '#8ED6FF',
+    width: 300,
+    off: 10,
+    borderWidth: 4,
+};
+
+var bLink = {
+    color: '#FF8ED6',
+    width: 130,
+    off: 10,
+    borderWidth: 4,
+};
+
+var cLink = {
+    color: '#00FF00',
+    width: 280,
+    off: 10,
+    borderWidth: 4,
+};
+
+var dLink = {
+    color: '#1199BB',
+    width: 180,
+    off: 10,
+    borderWidth: 4,
+};
+
+
+
+var startTime = (new Date()).getTime();
+
+// Call our animation function.
+try {
+    animate(aLink, bLink, cLink, dLink, [ {x1:0, y1:0, x2:0, y2:0} ], canvas, ctx, startTime);
+} catch(e) {
+    alert(e);
+}
+
+
+>>>>>>> ad3b650ebd166b30b0a8eb74d94aed6617ff0c3c
