@@ -1,0 +1,28 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+    </style>
+  </head>
+  <body onload="loadSimulation()">
+    <canvas id="myCanvas" width="600" height="600"></canvas>
+    <br>
+    Speed: <input type="number" id="speed"></input>
+    <br>
+    BE: <input type="number" id="triangle_a"></input>
+    <br>
+    EC: <input type="number"id="triangle_b"></input>
+    <br>
+    <button onclick="applyValues()">Apply</button>
+    <button onclick="loadSimulation()">Reset</button>
+    <button onclick="pauseSimulation()">Pause</button>
+
+    <script src="sinusoid.js"></script>
+
+  </body>
+</html>      
+

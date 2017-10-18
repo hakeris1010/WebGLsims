@@ -1,0 +1,21 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+    </style>
+  </head>
+  <body>
+    <input type="file" id="file" name="file" accept=".svg" onchange="loadMaze(this.files)">
+    <br>
+    <div id="mazeinfo"></div>
+    <br>
+    <canvas id="myCanvas" width="600" height="600"></canvas>
+
+    <script src="maze.js"></script>
+  </body>
+</html>      
+
