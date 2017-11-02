@@ -11,7 +11,7 @@
     </style>
   </head>
   <body>
-    <input type="file" id="file" name="file" accept=".svg" onchange="loadMaze(this.files)" />
+    <input type="file" id="file" name="file" accept=".svg" onchange="loadMaze(this.files[0])" />
     <br>
     <div id="mazeinfo"></div>
     <br>
@@ -19,6 +19,7 @@
     <canvas id="myCanvas" width="600" height="600"></canvas>
 
     <script src="maze.js"></script>
+    <div id="myImg"></div>
   </body>
 </html>      
 
