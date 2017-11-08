@@ -11,15 +11,15 @@
     </style>
   </head>
   <body>
-    <input type="file" id="file" name="file" accept=".svg" onchange="loadMaze(this.files[0])" />
+    <input type="file" id="file" name="file" accept=".svg" 
+     onchange="loadMazeFromFile(this.files[0], \"#mazeinfo\")" />
     <br>
     <div id="mazeinfo"></div>
     <br>
-    <div id="mazePreview"></div> 
     <canvas id="myCanvas" width="600" height="600"></canvas>
 
     <script src="maze.js"></script>
-    <div id="myImg"></div>
+    <embed src="maze_1.svg" type="image/svg+xml" style="display:none"/>
   </body>
 </html>      
 

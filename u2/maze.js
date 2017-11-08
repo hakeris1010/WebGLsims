@@ -1,7 +1,7 @@
 
 class MazeLoader {
 
-    constructor(svgData, mazeProps) {
+    constructor(svgDocument, mazeProps) {
         
     }
 
@@ -11,23 +11,31 @@ class MazeLoader {
 
 }
 
-function loadMaze(file, infoDiv){
+function loadMaze(svgData, infoDivId, canvasId){
     try{
-        document.getElementById('mazeinfo').innerHTML = "<p>Name: "+file.name+"<br>Size: "+file.size;
-
         // Load preview
-        var fr = new FileReader();
-        fr.onload = evt => {
-            var image = new Image(200, 200);
-            image.src = 'data:image/svg+xml;utf8,'+ evt.target.result ;
-            $('#mazePreview').append( image );
-            
-            //$('#mazePreview').html("<img  width=\"200\" height=\"200\""+
-            //                       "src= \"data:image/svg;base64,"+window.btoa(evt.target.result)+"\"/>");
-        }
-        fr.readAsText(file);
+        var image = new Image(200, 200);
+        image.src = 'data:image/svg+xml;utf8,'+ svgData ;
+        $(infoDivId).append( image );
+        
+        // Load Maze.
+        var loader = new MazeLoader( svgData, {wallHeight:0} );
+        loader.drawToCanvas( $(canvasId)[0] );
 
-        //var loader = new MazeLoader( evt.target.result, {wallType: "box", wallHeight: 100} );
+    } catch(e) {
+        alert(e);
+    }
+}
+
+
+function loadMazeFromFile(file, infoDivId){
+    // Print the file details
+    $(infoDivId).html( "<p>Name: "+file.name+"<br>Size: "+file.size+"</p>" );
+
+    try{
+        var fr = new FileReader();
+        fr.onload = evt => { loadMaze( evt.target.result, infoDivId, "#myCanvas") };
+        fr.readAsText(file);
 
     } catch(e) {
         alert(e);
@@ -49,12 +57,12 @@ function urlToFileData(url, callback) {
         })
 }
 
-//var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
-var DefaultMazePath = 'maze_1.svg';
+var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
+//var DefaultMazePath = 'maze_1.svg';
 
 $( document ).ready(() => {
     console.log( "ready!" );
-    urlToFileData( DefaultMazePath, file => { loadMaze( file, null ); } );
+    //urlToFileData( DefaultMazePath, file => { loadMaze( file, null ); } );
 });
 
 
