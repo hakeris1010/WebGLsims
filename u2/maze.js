@@ -1,12 +1,127 @@
 
 class MazeLoader {
+    //var props; // Maze properties.
+    //var doc; // SVG Document from which to build a ThreeJS Scene.
 
-    constructor(svgDocument, mazeProps) {
-        
+    /*var scene // ThreeJS scene containing the maze.
+    var camera // Current position of our camera.
+    var renderer // Current renderer.
+    */
+
+    /*! Constructs a Three.Scene from a SVGDocument and specified 3D properties.
+     *  - doc - a SVGDocument object containing a SVG data source.
+     *  - mazeProps - object containing specific options for constructing a scene.
+     */ 
+    constructor( baseDoc, mazeProps ) {
+        this.props = {};
+        this.scene = new THREE.Scene();
+
+        // Set default props.
+        var props = this.props;
+        props.wallHeight = 40;
+        props.wallWidth = 10;
+
+        console.log("Maze parsing started: \n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
+
+        var doc = baseDoc.documentElement;
+        var title = doc.getElementsByTagName("title")[0];
+
+        this.props.width = doc.getAttribute("width");
+        this.props.height = doc.getAttribute("height");
+
+        console.log("Title: "+title.innerHTML+"\nWidth: "+this.props.width+"\nHeight: "+this.props.height);
+
+        var mainG = doc.getElementsByTagName("g")[0];
+        console.log("main G: "+mainG+", childs: "+mainG.childElementCount);
+        console.log("Starting the loop!\n");
+
+        // Add basic stuff to the scene
+        var axes = new THREE.AxesHelper( 20 );
+        this.scene.add(axes);
+
+        // create the ground plane
+        var planeGeometry = new THREE.PlaneGeometry( props.width, props.height );
+        var planeMaterial = new THREE.MeshBasicMaterial({color: 0xcccccc});
+        var plane = new THREE.Mesh(planeGeometry,planeMaterial);
+
+        // rotate and position the plane
+        plane.position.x=0
+        plane.position.y=0
+        plane.position.z=0
+
+        // add the plane to the scene
+        this.scene.add(plane);
+
+        // Now iterate through all the elements of the <g> section, and convert each of them to 3D.
+        var nodes = mainG.children;
+        for(var i=0; i<nodes.length; i++){
+            console.log("["+i+"]: "+nodes[i]);
+            // Convert the nodes to 3D objects, which will be added to our Scene.
+            switch( nodes[i].nodeName ){
+                case "line":
+                    var poss = { 
+                        x1: nodes[i].getAttribute("x1"),
+                        x2: nodes[i].getAttribute("x2"),
+                        y1: nodes[i].getAttribute("y1"),
+                        y2: nodes[i].getAttribute("y2")
+                    };
+
+                    var xDiff = poss.x2 - poss.x1;
+                    var yDiff = poss.y2 - poss.y1;
+                    var lenght = Math.sqrt( Math.pow(xDiff,2) + Math.pow(yDiff,2) );
+
+                    var rotation = Math.atan( yDiff / xDiff );
+
+                    console.log("Woot! Line found! (len: "+lenght+", rot: "+rotation+")");
+
+                    // create a cube
+                    var cubeGeometry = new THREE.CubeGeometry( lenght, props.wallHeight, props.wallWidth );
+                    var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
+                    var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+                    // position the cube
+                    cube.position.x = poss.x1;
+                    cube.position.y = 0;
+                    cube.position.z = poss.y1 - props.wallWidth/2;
+
+                    // Rotate the cube around the Y (up) axis counter-clockwise.
+                    cube.rotation.y = -1 * rotation;
+
+                    //var rotWorldMatrix = new THREE.Matrix4();
+                    //rotWorldMatrix.makeRotationAxis( new THREE.Vector3(0,1,0), -1 * rotation );
+                    //rotWorldMatrix.multiply( cube.matrix );                // pre-multiply
+
+                    //cube.matrix = rotWorldMatrix;
+                    //cube.rotation.setFromRotationMatrix( cube.matrix );
+                    //cube.rotation.setFromRotationMatrix( rotWorldMatrix );
+
+                    // add the cube to the scene
+                    this.scene.add(cube);
+
+                    break;
+            }
+        }
+
+        this.ready = true;
     }
 
-    drawToCanvas(canvas) {
+    bindToCanvas(canvas) {
+        if(typeof this.ready === 'undefined') return;
+        /*
+        // create a camera, which defines where we're looking at.
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 
+        // create a render and set the size
+        this.renderer = new THREE.WebGLRenderer( { "canvas": canvas } );
+
+        this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
+        //renderer.setSize(500, 500);
+
+        setTimeout(() => { 
+            this.renderer.render(this.scene, this.camera);
+        }, 0); 
+        */
+        return true;
     }
 
 }
@@ -15,12 +130,15 @@ function loadMaze(svgData, infoDivId, canvasId){
     try{
         // Load preview
         var image = new Image(200, 200);
-        image.src = 'data:image/svg+xml;utf8,'+ svgData ;
+        image.src = "data:image/svg+xml;base64,"+window.btoa(svgData);
         $(infoDivId).append( image );
         
         // Load Maze.
-        var loader = new MazeLoader( svgData, {wallHeight:0} );
-        loader.drawToCanvas( $(canvasId)[0] );
+        var parser = new DOMParser();
+        var svgDoc = parser.parseFromString( svgData, "image/svg+xml" );
+
+        var loader = new MazeLoader( svgDoc, {wallHeight:0} );
+        loader.bindToCanvas( $(canvasId)[0] );
 
     } catch(e) {
         alert(e);
@@ -31,6 +149,7 @@ function loadMaze(svgData, infoDivId, canvasId){
 function loadMazeFromFile(file, infoDivId){
     // Print the file details
     $(infoDivId).html( "<p>Name: "+file.name+"<br>Size: "+file.size+"</p>" );
+    console.log("Loading File"+file);
 
     try{
         var fr = new FileReader();
@@ -50,21 +169,21 @@ function urlToFileData(url, callback) {
     fetch( url )
 	    .then(res => res.blob())
 	    .then(res => {
-            callback( new File( [res], url, {lastModified: Date.now()} ) );
+            callback( new File( [res], url, {name: url, lastModified: Date.now()} ) );
         })    
         .catch(error => {
             console.log("Request failed: ", error);
         })
 }
 
-var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
-//var DefaultMazePath = 'maze_1.svg';
+//var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
+var DefaultMazePath = 'maze_1.svg';
 
 $( document ).ready(() => {
     console.log( "ready!" );
-    //urlToFileData( DefaultMazePath, file => { loadMaze( file, null ); } );
-    //
-    testThreeJS( $('#myCanvas')[0] );
+    urlToFileData( DefaultMazePath, file => { loadMazeFromFile( file, '#mazeinfo' ); } );
+    
+    //testThreeJS( $('#myCanvas')[0] );
 });
 
 
@@ -85,7 +204,7 @@ function testThreeJS( canvas ){
 	renderer.setClearColor( new THREE.Color(0xEEEEEE) );
 	//renderer.setSize(500, 500);
 
-	var axes = new THREE.AxisHelper( 20 );
+	var axes = new THREE.AxesHelper( 20 );
 	scene.add(axes);
 
 	// create the ground plane
