@@ -1,26 +1,18 @@
 
 class MazeLoader {
-    //var props; // Maze properties.
-    //var doc; // SVG Document from which to build a ThreeJS Scene.
-
-    /*var scene // ThreeJS scene containing the maze.
-    var camera // Current position of our camera.
-    var renderer // Current renderer.
-    */
-
     /*! Constructs a Three.Scene from a SVGDocument and specified 3D properties.
      *  - doc - a SVGDocument object containing a SVG data source.
      *  - mazeProps - object containing specific options for constructing a scene.
      */ 
     constructor( baseDoc, mazeProps ) {
-        this.props = {};
+        // Maze's default properties.
+        this.props = { wallHeight: 20, wallWidth: 5 };
+
+        // ThreeJS scene containing the maze.
         this.scene = new THREE.Scene();
 
-        // Set default props.
+        // Bind the props to local var for easy access.
         var props = this.props;
-        props.wallHeight = 40;
-        props.wallWidth = 10;
-
         console.log("Maze parsing started: \n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
 
         var doc = baseDoc.documentElement;
@@ -107,23 +99,25 @@ class MazeLoader {
 
     bindToCanvas(canvas) {
         if(typeof this.ready === 'undefined') return;
-        /*
-        // create a camera, which defines where we're looking at.
-        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-        // create a render and set the size
+        // Create a Renderer and Bind it to Canvas passed.
         this.renderer = new THREE.WebGLRenderer( { "canvas": canvas } );
 
+        // Add a rendering function to queue of functions-to-call.
+        setTimeout( this.render, 0);
+    }
+
+    render() {
+        /*
+        // Create a camera, which defines where we're looking at.
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
         this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
         //renderer.setSize(500, 500);
 
-        setTimeout(() => { 
-            this.renderer.render(this.scene, this.camera);
-        }, 0); 
+        this.renderer.render(this.scene, this.camera);
         */
-        return true;
     }
-
 }
 
 function loadMaze(svgData, infoDivId, canvasId){
