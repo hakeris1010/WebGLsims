@@ -38,21 +38,13 @@ class MazeLoader {
             switch( nodes[i].nodeName ){
                 case "line":
                     var poss = { 
-                        x1: nodes[i].getAttribute("x1"),
-                        x2: nodes[i].getAttribute("x2"),
-                        y1: nodes[i].getAttribute("y1"),
-                        y2: nodes[i].getAttribute("y2")
+                        x1: parseInt( nodes[i].getAttribute("x1") ),
+                        x2: parseInt( nodes[i].getAttribute("x2") ),
+                        y1: parseInt( nodes[i].getAttribute("y1") ),
+                        y2: parseInt( nodes[i].getAttribute("y2") )
                     };
 
                     var wall = this.createWallBoxFromLine( poss );
-
-                    //var rotWorldMatrix = new THREE.Matrix4();
-                    //rotWorldMatrix.makeRotationAxis( new THREE.Vector3(0,1,0), -1 * rotation );
-                    //rotWorldMatrix.multiply( cube.matrix );                // pre-multiply
-
-                    //cube.matrix = rotWorldMatrix;
-                    //cube.rotation.setFromRotationMatrix( cube.matrix );
-                    //cube.rotation.setFromRotationMatrix( rotWorldMatrix );
 
                     // add the wall to the scene
                     this.scene.add( wall );
@@ -112,21 +104,22 @@ class MazeLoader {
 
         var rotation = Math.atan( yDiff / xDiff );
 
-        //console.log("Woot! Line found! (len: "+lenght+", rot: "+rotation+")");
-
-        // create a cube
+        // Create a Wall (Using the ThreeJS's Cube).
         var cubeGeometry = new THREE.CubeGeometry( lenght, props.wallHeight, props.wallWidth );
         var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 
-        // position the cube. Because Three.JS coordinates are centered, we must
-        // DeCenter our Poss coordinates to make stuff work.
-        cube.position.x = poss.x1 //+ lenght / 2;
+        // Position the cube. Because Three.JS coordinates are centered, we must
+        // set position to line's center.
+        cube.position.x = poss.x1 + xDiff/2;
+        cube.position.z = poss.y1 + yDiff/2;
         cube.position.y = 0 + props.wallHeight/2;
-        cube.position.z = poss.y1;
 
         // Rotate the cube around the Y (up) axis counter-clockwise.
-        cube.rotation.y = -1 * rotation;
+        cube.rotation.y = -1*rotation;
+
+        console.log(" Converting line to wall: (len: "+lenght+", rot: "+rotation+")."+
+                    "\n Position vec: "+Helper.vecToString(cube.position) );
 
         return cube;
     }
@@ -147,8 +140,8 @@ class MazeLoader {
 
         // Create a camera, which defines where we're looking at.
         this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
-        this.camera.position.x = scene.position.x + props.width*1.5;
-        this.camera.position.z = scene.position.z + props.height*1.5;
+        this.camera.position.x = scene.position.x + props.width*1.1;
+        this.camera.position.z = scene.position.z + props.height*1.1;
         this.camera.position.y = scene.position.y + ((props.width + props.height)/2) *1.5;
 
         this.camera.lookAt( new THREE.Vector3( 
