@@ -7,6 +7,7 @@ class MazeLoader {
     constructor( baseDoc, mazeProps ) {
         // Maze's default properties.
         this.props = { wallHeight: 15, wallWidth: 5 };
+        this.baseSvgDocument = baseDoc;
 
         // ThreeJS scene containing the maze.
         this.scene = new THREE.Scene();
@@ -21,7 +22,8 @@ class MazeLoader {
         this.props.width = parseInt(doc.getAttribute("width"));
         this.props.height = parseInt(doc.getAttribute("height"));
 
-        console.log("Title: "+title.innerHTML+"\nWidth: "+this.props.width+"\nHeight: "+this.props.height);
+        console.log("Title: "+title.innerHTML+"\nWidth: "+
+                    this.props.width+"\nHeight: "+this.props.height);
 
         var mainG = doc.getElementsByTagName("g")[0];
         console.log("main G: "+mainG+", childs: "+mainG.childElementCount);
@@ -30,40 +32,54 @@ class MazeLoader {
         // Add basic elements to scene
         this.addBasicSceneElements();
 
-        // Now iterate through all the elements of the <g> section, and convert each of them to 3D.
-        var nodes = mainG.children;
-        for(var i=0; i<nodes.length; i++){
-            console.log("["+i+"]: "+nodes[i]);
-            // Convert the nodes to 3D objects, which will be added to our Scene.
-            switch( nodes[i].nodeName ){
-                case "line":
-                    var poss = { 
-                        x1: parseInt( nodes[i].getAttribute("x1") ),
-                        x2: parseInt( nodes[i].getAttribute("x2") ),
-                        y1: parseInt( nodes[i].getAttribute("y1") ),
-                        y2: parseInt( nodes[i].getAttribute("y2") )
-                    };
-
-                    var wall = this.createWallBoxFromLine( poss );
-
-                    // add the wall to the scene
-                    this.scene.add( wall );
-
-                    break;
-            }
-        }
+        // Iterate through all the elements of the <g> section, and convert 
+        // each of them to properly positioned maze lines. 
+        // Then for each of them create a 3D Wall Box. 
+        this.makeProperMazeLines( mainG.children, line => {
+            this.scene.add( this.createWallBoxFromLine( line ) );
+        } );
 
         this.ready = true;
     }
 
-    /*! Gets the properly positioned maze lines from SVG nodes passed.
+    /*! Makes the properly positioned maze lines from SVG nodes passed.
      *  - Fixes the corner collisions, to make corners of maze walls look nice.
      *  @param svgNodeArray - an array-like Node collection, containing SVG nodes.
-     *  @param lineCallback - an optional callback to call after each successfully modified line.
-     *  @return an array of lines in form of objects {x1, y1, x2, y2}
+     *  @param lineCallback - an optional callback to call after each 
+     *                        successfully converted line.
      */
-    getProperMazeLines( svgNodeArray, lineCallback ){
+    makeProperMazeLines( svgNodeArray, lineCallback ){
+        var nodes = svgNodeArray;
+        var points = [];
 
+        for(var i=0; i<nodes.length; i++){
+            // Convert the nodes to 3D objects, which will be added to our Scene.
+            switch( nodes[i].nodeName ){
+            case "line":
+                // Get line point coordinates from attributes
+                var poss = { 
+                    x1: parseInt( nodes[i].getAttribute("x1") ),
+                    x2: parseInt( nodes[i].getAttribute("x2") ),
+                    y1: parseInt( nodes[i].getAttribute("y1") ),
+                    y2: parseInt( nodes[i].getAttribute("y2") )
+                };
+                
+                // Check if there exists some points which could make collisions.
+                /*points.forEach( item => {
+                    if( (Math.abs(item.x - poss.x1) < wallWidth &&
+                         Math.abs(item.y - poss.y1) < wallWidth) ){
+                        poss.x1 -= 
+                    }
+                });
+                */
+
+                // When finished modifying, call a callback.
+                if(lineCallback)
+                    lineCallback( poss );
+
+                break;
+            }
+        }
     }
 
     addBasicSceneElements(){
@@ -118,8 +134,8 @@ class MazeLoader {
 
         // Create a Wall (Using the ThreeJS's Cube).
         var cubeGeometry = new THREE.BoxGeometry( 
-            lenght, props.wallHeight, props.wallWidth,
-            lenght/4, props.wallHeight/4, props.wallWidth/4,
+            lenght + props.wallWidth, props.wallHeight, props.wallWidth,
+            (lenght + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4,
         );
         var cubeMaterial = new THREE.MeshLambertMaterial({
             color: 0x81680085, 
@@ -171,24 +187,30 @@ class MazeLoader {
         this.camera.position.z = scene.position.z + props.height*1.1;
         this.camera.position.y = scene.position.y + ((props.width + props.height)/2) *1.5;
 
-        this.camera.lookAt( new THREE.Vector3( 
+        var cameraTarget = new THREE.Vector3( 
             scene.position.x + props.width/2,
             scene.position.y,
             scene.position.z + props.height/2
-        ) );
+        ); 
+
+        this.camera.lookAt( cameraTarget );
+
+        // Set camera mouse controls.
+        //this.controls = new THREE.TrackballControls( this.camera );
+        //this.controls.target.set( cameraTarget.x, cameraTarget.y, cameraTarget.z );
+        //this.controls.target.set(0,0,0);
 
         console.log( "ScenePos: "+Helper.vecToString(scene.position)+
                      "\nCameraPos: "+Helper.vecToString(this.camera.position) );
 
         // Add basic stuff to the scene
-        var axes = new THREE.AxesHelper( 100 );
-        this.scene.add(axes);
+        //var axes = new THREE.AxesHelper( 100 );
+        //this.scene.add(axes);
 
         // Add a rendering function to queue of functions-to-call.
         //setTimeout( this.render, 0);
         this.render();
     }
-
     
     render() {
         if(!this.renderer){ 
