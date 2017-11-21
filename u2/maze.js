@@ -6,7 +6,7 @@ class MazeLoader {
      */ 
     constructor( baseDoc, mazeProps ) {
         // Maze's default properties.
-        this.props = { wallHeight: 10, wallWidth: 5 };
+        this.props = { wallHeight: 15, wallWidth: 5 };
 
         // ThreeJS scene containing the maze.
         this.scene = new THREE.Scene();
@@ -56,6 +56,16 @@ class MazeLoader {
         this.ready = true;
     }
 
+    /*! Gets the properly positioned maze lines from SVG nodes passed.
+     *  - Fixes the corner collisions, to make corners of maze walls look nice.
+     *  @param svgNodeArray - an array-like Node collection, containing SVG nodes.
+     *  @param lineCallback - an optional callback to call after each successfully modified line.
+     *  @return an array of lines in form of objects {x1, y1, x2, y2}
+     */
+    getProperMazeLines( svgNodeArray, lineCallback ){
+
+    }
+
     addBasicSceneElements(){
         // Create the ground plane
         var planeGeometry = new THREE.PlaneGeometry( 
@@ -63,8 +73,8 @@ class MazeLoader {
             this.props.width / 4, this.props.height / 4 
         );
         var planeMaterial = new THREE.MeshLambertMaterial({
-            color: 0xcccccc,
-            side: THREE.DoubleSide,
+            color: 0xd1d1d1,
+            side: THREE.DoubleSide
         });
         var plane = new THREE.Mesh(planeGeometry,planeMaterial);
 
@@ -83,10 +93,12 @@ class MazeLoader {
         this.scene.add( new THREE.AmbientLight( 0x404040 ) );
         //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
 
-        // Add the Point Light.
+        // Add the Point Light, and mark it as a shadow caster
         var pointLight = new THREE.PointLight(0xffffff, 0.7);
+        pointLight.castShadow = true;
+
         pointLight.position.x = this.props.width/2;
-        pointLight.position.y = ((this.props.width + this.props.height)/2) / 2;
+        pointLight.position.y = ((this.props.width + this.props.height)/2);
         pointLight.position.z = this.props.height/2;
 
         console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
@@ -105,9 +117,17 @@ class MazeLoader {
         var rotation = Math.atan( yDiff / xDiff );
 
         // Create a Wall (Using the ThreeJS's Cube).
-        var cubeGeometry = new THREE.CubeGeometry( lenght, props.wallHeight, props.wallWidth );
-        var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
+        var cubeGeometry = new THREE.BoxGeometry( 
+            lenght, props.wallHeight, props.wallWidth,
+            lenght/4, props.wallHeight/4, props.wallWidth/4,
+        );
+        var cubeMaterial = new THREE.MeshLambertMaterial({
+            color: 0x81680085, 
+            side: THREE.DoubleSide
+        });
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+        cube.castShadow = true;
+        cube.receiveShadow = true;
 
         // Position the cube. Because Three.JS coordinates are centered, we must
         // set position to line's center.
@@ -135,8 +155,15 @@ class MazeLoader {
         var props = this.props;
 
         // Create a Renderer and Bind it to Canvas passed.
-        this.renderer = new THREE.WebGLRenderer( { "canvas": canvas } );
+        this.renderer = new THREE.WebGLRenderer( { 
+            "canvas": canvas, 
+            antialias: true 
+        } );
         this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
+
+        // Setup the shadow system.
+        this.renderer.shadowMapEnabled = true;
+        this.renderer.shadowMapType = THREE.PCFSoftShadowMap; // Anti-aliasing.
 
         // Create a camera, which defines where we're looking at.
         this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
