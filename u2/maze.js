@@ -6,7 +6,7 @@ class MazeLoader {
      */ 
     constructor( baseDoc, mazeProps ) {
         // Maze's default properties.
-        this.props = { wallHeight: 20, wallWidth: 5 };
+        this.props = { wallHeight: 10, wallWidth: 5 };
 
         // ThreeJS scene containing the maze.
         this.scene = new THREE.Scene();
@@ -18,8 +18,8 @@ class MazeLoader {
         var doc = baseDoc.documentElement;
         var title = doc.getElementsByTagName("title")[0];
 
-        this.props.width = doc.getAttribute("width");
-        this.props.height = doc.getAttribute("height");
+        this.props.width = parseInt(doc.getAttribute("width"));
+        this.props.height = parseInt(doc.getAttribute("height"));
 
         console.log("Title: "+title.innerHTML+"\nWidth: "+this.props.width+"\nHeight: "+this.props.height);
 
@@ -27,22 +27,8 @@ class MazeLoader {
         console.log("main G: "+mainG+", childs: "+mainG.childElementCount);
         console.log("Starting the loop!\n");
 
-        // Add basic stuff to the scene
-        var axes = new THREE.AxesHelper( 20 );
-        this.scene.add(axes);
-
-        // create the ground plane
-        var planeGeometry = new THREE.PlaneGeometry( props.width, props.height );
-        var planeMaterial = new THREE.MeshBasicMaterial({color: 0xcccccc});
-        var plane = new THREE.Mesh(planeGeometry,planeMaterial);
-
-        // rotate and position the plane
-        plane.position.x=0
-        plane.position.y=0
-        plane.position.z=0
-
-        // add the plane to the scene
-        this.scene.add(plane);
+        // Add basic elements to scene
+        this.addBasicSceneElements();
 
         // Now iterate through all the elements of the <g> section, and convert each of them to 3D.
         var nodes = mainG.children;
@@ -58,26 +44,7 @@ class MazeLoader {
                         y2: nodes[i].getAttribute("y2")
                     };
 
-                    var xDiff = poss.x2 - poss.x1;
-                    var yDiff = poss.y2 - poss.y1;
-                    var lenght = Math.sqrt( Math.pow(xDiff,2) + Math.pow(yDiff,2) );
-
-                    var rotation = Math.atan( yDiff / xDiff );
-
-                    console.log("Woot! Line found! (len: "+lenght+", rot: "+rotation+")");
-
-                    // create a cube
-                    var cubeGeometry = new THREE.CubeGeometry( lenght, props.wallHeight, props.wallWidth );
-                    var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
-                    var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-
-                    // position the cube
-                    cube.position.x = poss.x1;
-                    cube.position.y = 0;
-                    cube.position.z = poss.y1 - props.wallWidth/2;
-
-                    // Rotate the cube around the Y (up) axis counter-clockwise.
-                    cube.rotation.y = -1 * rotation;
+                    var wall = this.createWallBoxFromLine( poss );
 
                     //var rotWorldMatrix = new THREE.Matrix4();
                     //rotWorldMatrix.makeRotationAxis( new THREE.Vector3(0,1,0), -1 * rotation );
@@ -87,8 +54,8 @@ class MazeLoader {
                     //cube.rotation.setFromRotationMatrix( cube.matrix );
                     //cube.rotation.setFromRotationMatrix( rotWorldMatrix );
 
-                    // add the cube to the scene
-                    this.scene.add(cube);
+                    // add the wall to the scene
+                    this.scene.add( wall );
 
                     break;
             }
@@ -97,28 +64,127 @@ class MazeLoader {
         this.ready = true;
     }
 
+    addBasicSceneElements(){
+        // Create the ground plane
+        var planeGeometry = new THREE.PlaneGeometry( 
+            this.props.width, this.props.height, 
+            this.props.width / 4, this.props.height / 4 
+        );
+        var planeMaterial = new THREE.MeshLambertMaterial({
+            color: 0xcccccc,
+            side: THREE.DoubleSide,
+        });
+        var plane = new THREE.Mesh(planeGeometry,planeMaterial);
+
+        // Rotate and position the plane
+        plane.position.x=0 + this.props.width/2;
+        plane.position.y=0;
+        plane.position.z=0 + this.props.height/2;
+        plane.rotation.x = Math.PI/2;
+
+        plane.receiveShadow = true;
+
+        // Add the plane to the scene
+        this.scene.add(plane);
+
+        // Add ambient and hemispheric light sources.
+        this.scene.add( new THREE.AmbientLight( 0x404040 ) );
+        //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
+
+        // Add the Point Light.
+        var pointLight = new THREE.PointLight(0xffffff, 0.7);
+        pointLight.position.x = this.props.width/2;
+        pointLight.position.y = ((this.props.width + this.props.height)/2) / 2;
+        pointLight.position.z = this.props.height/2;
+
+        console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
+
+        this.scene.add( pointLight ); 
+    }
+
+    createWallBoxFromLine( lineCoords ){
+        var poss = lineCoords;
+        var props = this.props;
+
+        var xDiff = poss.x2 - poss.x1;
+        var yDiff = poss.y2 - poss.y1;
+        var lenght = Math.sqrt( Math.pow(xDiff,2) + Math.pow(yDiff,2) );
+
+        var rotation = Math.atan( yDiff / xDiff );
+
+        //console.log("Woot! Line found! (len: "+lenght+", rot: "+rotation+")");
+
+        // create a cube
+        var cubeGeometry = new THREE.CubeGeometry( lenght, props.wallHeight, props.wallWidth );
+        var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
+        var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+        // position the cube. Because Three.JS coordinates are centered, we must
+        // DeCenter our Poss coordinates to make stuff work.
+        cube.position.x = poss.x1 //+ lenght / 2;
+        cube.position.y = 0 + props.wallHeight/2;
+        cube.position.z = poss.y1;
+
+        // Rotate the cube around the Y (up) axis counter-clockwise.
+        cube.rotation.y = -1 * rotation;
+
+        return cube;
+    }
+
+    /*! Binds the renderer to canvas, and sets all rendering properties.
+     *  - Gets the renderer fully ready to render.
+     *  @param canvas - a HTML canvas which renderer will render to.
+     */
     bindToCanvas(canvas) {
-        if(typeof this.ready === 'undefined') return;
+        // Check if scene is already ready.
+        if(!this.ready) return;
+        var scene = this.scene;
+        var props = this.props;
 
         // Create a Renderer and Bind it to Canvas passed.
         this.renderer = new THREE.WebGLRenderer( { "canvas": canvas } );
+        this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
+
+        // Create a camera, which defines where we're looking at.
+        this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
+        this.camera.position.x = scene.position.x + props.width*1.5;
+        this.camera.position.z = scene.position.z + props.height*1.5;
+        this.camera.position.y = scene.position.y + ((props.width + props.height)/2) *1.5;
+
+        this.camera.lookAt( new THREE.Vector3( 
+            scene.position.x + props.width/2,
+            scene.position.y,
+            scene.position.z + props.height/2
+        ) );
+
+        console.log( "ScenePos: "+Helper.vecToString(scene.position)+
+                     "\nCameraPos: "+Helper.vecToString(this.camera.position) );
+
+        // Add basic stuff to the scene
+        var axes = new THREE.AxesHelper( 100 );
+        this.scene.add(axes);
 
         // Add a rendering function to queue of functions-to-call.
-        setTimeout( this.render, 0);
+        //setTimeout( this.render, 0);
+        this.render();
     }
 
+    
     render() {
-        /*
-        // Create a camera, which defines where we're looking at.
-        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
-        //renderer.setSize(500, 500);
-
+        if(!this.renderer){ 
+            console.log("Renderer is UnDefined!");
+            return;
+        }
         this.renderer.render(this.scene, this.camera);
-        */
     }
 }
+
+class Helper{
+    static vecToString( vec ){
+        return "x: "+vec.x+", y: "+vec.y+", z: "+vec.z;
+    };
+}
+
 
 function loadMaze(svgData, infoDivId, canvasId){
     try{
