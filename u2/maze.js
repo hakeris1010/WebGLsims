@@ -47,8 +47,11 @@ class MazeLoader {
         // Iterate through all the elements of the <g> section, and convert 
         // each of them to properly positioned maze lines. 
         // Then for each of them create a 3D Wall Box. 
-        this.makeProperMazeLines( this.svgMainG.children, line => {
-            this.scene.add( this.createWallBoxFromLine( line ) );
+        this.properizeMazeElements( this.svgMainG.children, elem => {
+            switch(elem.type){
+            case "line":
+                this.scene.add( this.createWallBoxFromLine( elem.data ) );
+            }
         } );
 
         this.ready = true;
@@ -104,15 +107,16 @@ class MazeLoader {
     /*! Makes the properly positioned maze lines from SVG nodes passed.
      *  - Fixes the corner collisions, to make corners of maze walls look nice.
      *  @param svgNodeArray - an array-like Node collection, containing SVG nodes.
-     *  @param lineCallback - an optional callback to call after each 
-     *                        successfully converted line.
+     *  @param elemCallback - an optional callback to call after each 
+     *                        successfully converted element.
      */
-    makeProperMazeLines( svgNodeArray, lineCallback ){
+    properizeMazeElements( svgNodeArray, elemCallback ){
         var nodes = svgNodeArray;
         var points = [];
 
         for(var i=0; i<nodes.length; i++){
-            // Convert the nodes to 3D objects, which will be added to our Scene.
+            var skipNode = false; // Set if line needs to be skipp'd (already exists).
+
             switch( nodes[i].nodeName ){
             case "line":
                 // Get line point coordinates from attributes
@@ -120,24 +124,88 @@ class MazeLoader {
                     x1: parseInt( nodes[i].getAttribute("x1") ),
                     x2: parseInt( nodes[i].getAttribute("x2") ),
                     y1: parseInt( nodes[i].getAttribute("y1") ),
-                    y2: parseInt( nodes[i].getAttribute("y2") )
+                    y2: parseInt( nodes[i].getAttribute("y2") ),
+                    
+                    collision1: false,
+                    collision2: false
                 };
+                poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
                 
                 // Check if there exists some points which could make collisions.
-                /*points.forEach( item => {
-                    if( (Math.abs(item.x - poss.x1) < wallWidth &&
-                         Math.abs(item.y - poss.y1) < wallWidth) ){
-                        poss.x1 -= 
+                for(var j = 0; j < points.size; j++) {
+                    var pt = points[j];
+
+                    var diffPtX1 = Math.abs(pt.x - poss.x1);
+                    var diffPtY1 = Math.abs(pt.y - poss.y1);
+
+                    var diffPtX2 = Math.abs(pt.x - poss.x2);
+                    var diffPtY2 = Math.abs(pt.y - poss.y2);
+
+                    var coll_1 = (diffPtX1 < wallWidth && diffPtY1 < wallWidth);
+                    var coll_2 = (diffPtX2 < wallWidth && diffPtY2 < wallWidth);
+
+                    // Resolve collisions by moving point's coordinates such
+                    // that the walls won't collide.
+                    if(coll_1 && coll_2){
+                        skipNode = true;
+                        poss.collision1 = true;
+                        poss.collision2 = true;
+                        break;
                     }
-                });
-                */
+                    else if( coll_1 ){
+                        poss.x1 += Math.cos( poss.rotation ) * (wallWidth - diffPtX1);
+                        poss.y1 += Math.sin( poss.rotation ) * (wallWidth - diffPtY1);
+                        poss.collision1 = true;
+                        break;
+                    }
+                    else if( coll_2 ){
+                        poss.x2 += Math.cos( poss.rotation ) * (wallWidth - diffPtX2);
+                        poss.y2 += Math.sin( poss.rotation ) * (wallWidth - diffPtY2);
+                        poss.collision2 = true;
+                        break;
+                    }
+                }
+
+                if(poss.collision1)
+                    points.push({x: poss.x1, y: poss.y1});
+
+                if(poss.collision2)
+                    points.push({x: poss.x2, y: poss.y2});
+
+                // Continue to next iteration if node needs to be skipp'd.
+                if(skipNode)
+                    continue;
+                    
+                // Get the graphical 3D coordinates for rendering.
+                // TODO: Use graphical coords for rendiering.
 
                 // When finished modifying, call a callback.
-                if(lineCallback)
-                    lineCallback( poss );
+                if(elemCallback) {
+                    elemCallback( {
+                        type: "line", 
+                        data: poss
+                    } );
+                }
 
                 break;
             }
+        }
+    }
+
+    /*! Gets the rendering coordinate-oriented properties: rotation, axis differences.
+     *  @param lineCoords - SVG type line coords {x1,y1, x2,y2}
+     */ 
+    getLineProps( lineCoords ){
+        var poss = lineCoords;
+        return {
+            xDiff: poss.x2 - poss.x1,
+            yDiff: poss.y2 - poss.y1,
+            
+            xCenter: poss.x1 + xDiff/2,
+            yCenter: poss.y1 + yDiff/2,
+
+            lenght: Math.sqrt( Math.pow(xDiff,2) + Math.pow(yDiff,2) ),
+            rotation: -1 * Math.atan( yDiff / xDiff )
         }
     }
 
