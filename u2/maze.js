@@ -25,7 +25,7 @@ class MazeLoader {
             "height": (renderProps.height ? renderProps.height : window.innerHeight)
         };
 
-        console.log("Title: "+title.innerHTML+"\nMazeWidth: "+
+        console.log("Title: "+(title ? title.innerHTML : 'undefined')+"\nMazeWidth: "+
                     this.props.width+"\nMazeHeight: "+this.props.height);
 
         this.svgMainG = doc.getElementsByTagName("g")[0];
@@ -63,15 +63,15 @@ class MazeLoader {
             this.props.width / 4, this.props.height / 4 
         );
         var planeMaterial = new THREE.MeshLambertMaterial({
-            color: 0xd1d1d1,
+            color: 0x808080,
             side: THREE.DoubleSide
         });
         var plane = new THREE.Mesh(planeGeometry,planeMaterial);
 
         // Rotate and position the plane
-        plane.position.x=0 + this.props.width/2;
-        plane.position.y=0;
-        plane.position.z=0 + this.props.height/2;
+        plane.position.x = 0 + this.props.width/2;
+        plane.position.y = -0.35;
+        plane.position.z = 0 + this.props.height/2;
         plane.rotation.x = Math.PI/2;
 
         plane.receiveShadow = true;
@@ -84,7 +84,7 @@ class MazeLoader {
         //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
 
         // Add the Point Light, and mark it as a shadow caster
-        var pointLight = new THREE.PointLight(0xffffff, 0.7);
+        var pointLight = new THREE.PointLight(0xffffff, 1);
         pointLight.castShadow = true;
 
         pointLight.position.x = this.props.width/2;
@@ -94,6 +94,10 @@ class MazeLoader {
         console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
 
         this.scene.add( pointLight ); 
+
+        // Add axis helper
+        var axesHelper = new THREE.AxesHelper( 200 );
+        this.scene.add( axesHelper );
     }
 
 
@@ -199,7 +203,7 @@ class MazeLoader {
             45, 
             width / height, 
             0.1, 
-            1000
+            7000
         );
         this.camera.position.x = scene.position.x + props.width*1.1;
         this.camera.position.z = scene.position.z + props.height*1.1;
@@ -211,17 +215,9 @@ class MazeLoader {
             scene.position.z + props.height/2
         ); 
 
-        this.camera.lookAt( cameraTarget );
-        
-        /*var camera = new THREE.PerspectiveCamera( 60, width / height, 1, 1000 );
-        camera.position.z = 400;
-        camera.position.x = 400;
-        camera.position.y = 400;
-        this.camera = camera;
-        */
-
         // Set camera controls.
         var controls = new THREE.TrackballControls( this.camera );
+        controls.target.set( cameraTarget.x, cameraTarget.y, cameraTarget.z);
 
         controls.rotateSpeed = 1.0;
         controls.zoomSpeed = 1.2;
@@ -238,6 +234,9 @@ class MazeLoader {
         controls.addEventListener( 'change', this.render.bind(this) );
         
         this.controls = controls;
+
+        // Set camera to look at the center of the maze.
+        this.camera.lookAt( cameraTarget );
         
         // Setup stats for FPS view.
         this.stats = new Stats();
@@ -251,7 +250,7 @@ class MazeLoader {
         this.renderer = new THREE.WebGLRenderer( { 
             antialias: true 
         } );
-        this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
+        this.renderer.setClearColor( new THREE.Color(0x1A1A1A) );
         this.renderer.setPixelRatio( window.devicePixelRatio );
         this.renderer.setSize( width, height );
 
@@ -282,6 +281,8 @@ class MazeLoader {
     /*! Renders the scene.
      */ 
     render() {
+        //if(this.stop) return;
+
         this.renderer.render(this.scene, this.camera);
         this.stats.update();
     }
@@ -290,13 +291,23 @@ class MazeLoader {
      *  Called from outside the renderer to start the loop.
      */ 
     animate(){
+        //if(this.stop) return;
+
         //stats.begin();
         // monitored code goes here
         //stats.end();
 
         // Use a binder to bind this function to this object.
         this.controls.update();
-        requestAnimationFrame( this.animate.bind(this) );
+        this.animationID = requestAnimationFrame( this.animate.bind(this) );
+    }
+
+    /*! Stop rendering and destroy the loader.
+     */ 
+    destroy(){
+        this.stop = true;
+        if(this.animationID)
+            cancelAnimationFrame( this.animationID );
     }
 }
 
@@ -304,20 +315,20 @@ class Helper{
     static vecToString( vec ){
         return "x: "+vec.x+", y: "+vec.y+", z: "+vec.z;
     };
-
-    static waitForElement( elem ){
-        if(typeof elem !== "undefined"){
-            return;
-        }
-        else{
-            setTimeout(waitForElement, 250);
-        }
-    }
 }
 
 
+//============ UI part =============//
+
+var currentLoader = null;
+
 function loadMaze(svgData, infoDivId, renderDivId){
     try{
+        if( currentLoader ){
+            currentLoader.destroy();
+            $(renderDivId).empty();
+        }
+
         // Load preview
         var image = new Image(200, 200);
         image.src = "data:image/svg+xml;base64,"+window.btoa(svgData);
@@ -327,7 +338,7 @@ function loadMaze(svgData, infoDivId, renderDivId){
         var parser = new DOMParser();
         var svgDoc = parser.parseFromString( svgData, "image/svg+xml" );
 
-        var loader = new MazeLoader( 
+        currentLoader = new MazeLoader( 
             svgDoc, 
             {
                 wallHeight:15
@@ -338,8 +349,8 @@ function loadMaze(svgData, infoDivId, renderDivId){
                 "height": parseInt( $(renderDivId).attr("height") )
             }
         );
-        loader.render();
-        loader.animate();
+        currentLoader.render();
+        currentLoader.animate();
 
     } catch(e) {
         alert(e);

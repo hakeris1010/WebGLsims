@@ -15,14 +15,18 @@
     </style>
   </head>
   <body>
-    <input type="file" id="file" name="file" accept=".svg" 
-     onchange="loadMazeFromFile(this.files[0], \"#mazeinfo\")" />
+    <input type="file" id="file" name="file" accept=".svg" onchange="loadFayl(this.files[0])"></input>
     <br>
     <div id="renderdiv" width="600" height="600"></div>
     <br>
     <div id="mazeinfo"></div>
 
     <script src="maze.js"></script>
+    <script>
+        function loadFayl( file ){
+            loadMazeFromFile(file, "#mazeinfo");
+        }
+    </script>
     <embed src="maze_1.svg" type="image/svg+xml" style="display:none"/>
   </body>
 </html>      
