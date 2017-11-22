@@ -194,7 +194,7 @@ class MazeLoader {
         var height = this.rendProps.height;
 
         // Create a camera, which defines where we're looking at.
-        /*
+        
         this.camera = new THREE.PerspectiveCamera(
             45, 
             width / height, 
@@ -212,16 +212,16 @@ class MazeLoader {
         ); 
 
         this.camera.lookAt( cameraTarget );
-        */
-
-        // Set camera controls.
-        var camera = new THREE.PerspectiveCamera( 60, width / height, 1, 1000 );
+        
+        /*var camera = new THREE.PerspectiveCamera( 60, width / height, 1, 1000 );
         camera.position.z = 400;
         camera.position.x = 400;
         camera.position.y = 400;
         this.camera = camera;
+        */
 
-        var controls = new THREE.TrackballControls( camera );
+        // Set camera controls.
+        var controls = new THREE.TrackballControls( this.camera );
 
         controls.rotateSpeed = 1.0;
         controls.zoomSpeed = 1.2;
@@ -230,12 +230,12 @@ class MazeLoader {
         controls.noZoom = false;
         controls.noPan = false;
 
-        controls.staticMoving = true;
+        //controls.staticMoving = true;
         controls.dynamicDampingFactor = 0.3;
 
         controls.keys = [ 65, 83, 68 ];
 
-        controls.addEventListener( 'change', this.render );
+        controls.addEventListener( 'change', this.render.bind(this) );
         
         this.controls = controls;
         
@@ -294,9 +294,9 @@ class MazeLoader {
         // monitored code goes here
         //stats.end();
 
-        // Use a binder to bind 
-        requestAnimationFrame( this.animate.bind(this) );
+        // Use a binder to bind this function to this object.
         this.controls.update();
+        requestAnimationFrame( this.animate.bind(this) );
     }
 }
 
@@ -304,6 +304,15 @@ class Helper{
     static vecToString( vec ){
         return "x: "+vec.x+", y: "+vec.y+", z: "+vec.z;
     };
+
+    static waitForElement( elem ){
+        if(typeof elem !== "undefined"){
+            return;
+        }
+        else{
+            setTimeout(waitForElement, 250);
+        }
+    }
 }
 
 
