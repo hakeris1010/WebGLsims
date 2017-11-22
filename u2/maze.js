@@ -9,11 +9,6 @@ class MazeLoader {
         this.props = { wallHeight: 15, wallWidth: 5 };
         this.baseSvgDocument = baseDoc;
 
-        // ThreeJS scene containing the maze.
-        this.scene = new THREE.Scene();
-
-        // Bind the props to local var for easy access.
-        var props = this.props;
         console.log("Maze parsing started: \n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
 
         var doc = baseDoc.documentElement;
@@ -25,17 +20,26 @@ class MazeLoader {
         console.log("Title: "+title.innerHTML+"\nWidth: "+
                     this.props.width+"\nHeight: "+this.props.height);
 
-        var mainG = doc.getElementsByTagName("g")[0];
-        console.log("main G: "+mainG+", childs: "+mainG.childElementCount);
-        console.log("Starting the loop!\n");
+        this.svgMainG = doc.getElementsByTagName("g")[0];
+        console.log("main G: "+this.svgMainG+", childs: "+this.svgMainG.childElementCount);
 
-        // Add basic elements to scene
+        this.createScene();
+        this.setupRendering();
+    }
+
+    /*! Creates a scene containing all maze elements.
+     */ 
+    createScene(){
+        // ThreeJS scene containing the maze.
+        this.scene = new THREE.Scene();
+
+        // Add basic elements to scene (Lights, etc).
         this.addBasicSceneElements();
 
         // Iterate through all the elements of the <g> section, and convert 
         // each of them to properly positioned maze lines. 
         // Then for each of them create a 3D Wall Box. 
-        this.makeProperMazeLines( mainG.children, line => {
+        this.makeProperMazeLines( this.svgMainG.children, line => {
             this.scene.add( this.createWallBoxFromLine( line ) );
         } );
 
@@ -162,27 +166,27 @@ class MazeLoader {
 
     /*! Binds the renderer to canvas, and sets all rendering properties.
      *  - Gets the renderer fully ready to render.
-     *  @param canvas - a HTML canvas which renderer will render to.
+     *  @param divId - a HTML div to which the canvas will be appended to which renderer will render to.
      */
-    bindToCanvas(canvas) {
+    setupRendering(divId, width, height) {
         // Check if scene is already ready.
         if(!this.ready) return;
         var scene = this.scene;
         var props = this.props;
 
-        // Create a Renderer and Bind it to Canvas passed.
-        this.renderer = new THREE.WebGLRenderer( { 
-            "canvas": canvas, 
-            antialias: true 
-        } );
-        this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
-
-        // Setup the shadow system.
-        this.renderer.shadowMapEnabled = true;
-        this.renderer.shadowMapType = THREE.PCFSoftShadowMap; // Anti-aliasing.
+        var rendSize = {
+            "width" : (width  ? width  : window.innerWidth ),
+            "height": (height ? height : window.innerHeight)
+        };
 
         // Create a camera, which defines where we're looking at.
-        this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
+        /*
+        this.camera = new THREE.PerspectiveCamera(
+            45, 
+            this.renderer.getSize().width / this.renderer.getSize().height, 
+            0.1, 
+            1000
+        );
         this.camera.position.x = scene.position.x + props.width*1.1;
         this.camera.position.z = scene.position.z + props.height*1.1;
         this.camera.position.y = scene.position.y + ((props.width + props.height)/2) *1.5;
@@ -194,30 +198,88 @@ class MazeLoader {
         ); 
 
         this.camera.lookAt( cameraTarget );
+        */
 
-        // Set camera mouse controls.
-        //this.controls = new THREE.TrackballControls( this.camera );
-        //this.controls.target.set( cameraTarget.x, cameraTarget.y, cameraTarget.z );
-        //this.controls.target.set(0,0,0);
+        // Set camera controls.
+        var camera = new THREE.PerspectiveCamera( 60, rendSize.width / rendSize.height, 1, 1000 );
+        camera.position.z = 400;
+        camera.position.x = 400;
+        camera.position.y = 400;
+        this.camera = camera;
+
+        var controls = new THREE.TrackballControls( camera );
+
+        controls.rotateSpeed = 1.0;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
+
+        controls.noZoom = false;
+        controls.noPan = false;
+
+        controls.staticMoving = true;
+        controls.dynamicDampingFactor = 0.3;
+
+        controls.keys = [ 65, 83, 68 ];
+
+        controls.addEventListener( 'change', this.render );
+        
+        this.controls = controls;
+        
+        // Setup stats for FPS view.
+        this.stats = new Stats();
+        //this.container.append( this.stats.dom );
 
         console.log( "ScenePos: "+Helper.vecToString(scene.position)+
                      "\nCameraPos: "+Helper.vecToString(this.camera.position) );
 
-        // Add basic stuff to the scene
-        //var axes = new THREE.AxesHelper( 100 );
-        //this.scene.add(axes);
+        // Create a Renderer and add drawing canvas to Div passed.
+        this.renderer = new THREE.WebGLRenderer( { 
+            antialias: true 
+        } );
+        this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
+        this.renderer.setPixelRatio( window.devicePixelRatio );
+        this.renderer.setSize( rendSize.width, rendSize.height );
 
-        // Add a rendering function to queue of functions-to-call.
-        //setTimeout( this.render, 0);
+        // Setup the shadow system.
+        this.renderer.shadowMapEnabled = true;
+        this.renderer.shadowMapType = THREE.PCFSoftShadowMap; // Anti-aliasing.
+
+        // Add render canvas to the container
+        this.container = $(divId);
+        this.container.append( this.renderer.domElement );
+
+        if(!width)
+            window.addEventListener( 'resize', this.onWindowResize, false );
+
+        // Finally, render a scene.
+        this.render();
+
+        this.animate();
+    }
+
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+
+        this.renderer.setSize( window.innerWidth, window.innerHeight );
+
+        this.controls.handleResize();
+
         this.render();
     }
     
     render() {
-        if(!this.renderer){ 
-            console.log("Renderer is UnDefined!");
-            return;
-        }
         this.renderer.render(this.scene, this.camera);
+        this.stats.update();
+    }
+
+    animate(){
+        //stats.begin();
+        // monitored code goes here
+        //stats.end();
+
+        requestAnimationFrame( this.animate );
+        this.controls.update();
     }
 }
 
@@ -228,7 +290,7 @@ class Helper{
 }
 
 
-function loadMaze(svgData, infoDivId, canvasId){
+function loadMaze(svgData, infoDivId, renderDivId){
     try{
         // Load preview
         var image = new Image(200, 200);
@@ -240,7 +302,11 @@ function loadMaze(svgData, infoDivId, canvasId){
         var svgDoc = parser.parseFromString( svgData, "image/svg+xml" );
 
         var loader = new MazeLoader( svgDoc, {wallHeight:0} );
-        loader.bindToCanvas( $(canvasId)[0] );
+        loader.setupRendering( 
+            renderDivId, 
+            parseInt( $(renderDivId).attr("width") ),
+            parseInt( $(renderDivId).attr("height") )
+        );
 
     } catch(e) {
         alert(e);
@@ -255,7 +321,7 @@ function loadMazeFromFile(file, infoDivId){
 
     try{
         var fr = new FileReader();
-        fr.onload = evt => { loadMaze( evt.target.result, infoDivId, "#myCanvas") };
+        fr.onload = evt => { loadMaze( evt.target.result, infoDivId, "#renderdiv") };
         fr.readAsText(file);
 
     } catch(e) {
