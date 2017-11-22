@@ -4,7 +4,7 @@ class MazeLoader {
      *  - doc - a SVGDocument object containing a SVG data source.
      *  - mazeProps - object containing specific options for constructing a scene.
      */ 
-    constructor( baseDoc, mazeProps ) {
+    constructor( baseDoc, mazeProps, renderProps ) {
         // Maze's default properties.
         this.props = { wallHeight: 15, wallWidth: 5 };
         this.baseSvgDocument = baseDoc;
@@ -14,11 +14,19 @@ class MazeLoader {
         var doc = baseDoc.documentElement;
         var title = doc.getElementsByTagName("title")[0];
 
+        // Set maze sizes
         this.props.width = parseInt(doc.getAttribute("width"));
         this.props.height = parseInt(doc.getAttribute("height"));
 
-        console.log("Title: "+title.innerHTML+"\nWidth: "+
-                    this.props.width+"\nHeight: "+this.props.height);
+        // Set rendering properties - viewport, and div to render to.
+        this.rendProps = {
+            "divId" : renderProps.div,
+            "width" : (renderProps.width  ? renderProps.width  : window.innerWidth ),
+            "height": (renderProps.height ? renderProps.height : window.innerHeight)
+        };
+
+        console.log("Title: "+title.innerHTML+"\nMazeWidth: "+
+                    this.props.width+"\nMazeHeight: "+this.props.height);
 
         this.svgMainG = doc.getElementsByTagName("g")[0];
         console.log("main G: "+this.svgMainG+", childs: "+this.svgMainG.childElementCount);
@@ -45,6 +53,49 @@ class MazeLoader {
 
         this.ready = true;
     }
+
+    /*! Adds basic elements to scene: ground plane, and lights.
+     */
+    addBasicSceneElements(){
+        // Create the ground plane
+        var planeGeometry = new THREE.PlaneGeometry( 
+            this.props.width, this.props.height, 
+            this.props.width / 4, this.props.height / 4 
+        );
+        var planeMaterial = new THREE.MeshLambertMaterial({
+            color: 0xd1d1d1,
+            side: THREE.DoubleSide
+        });
+        var plane = new THREE.Mesh(planeGeometry,planeMaterial);
+
+        // Rotate and position the plane
+        plane.position.x=0 + this.props.width/2;
+        plane.position.y=0;
+        plane.position.z=0 + this.props.height/2;
+        plane.rotation.x = Math.PI/2;
+
+        plane.receiveShadow = true;
+
+        // Add the plane to the scene
+        this.scene.add(plane);
+
+        // Add ambient and hemispheric light sources.
+        this.scene.add( new THREE.AmbientLight( 0x404040 ) );
+        //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
+
+        // Add the Point Light, and mark it as a shadow caster
+        var pointLight = new THREE.PointLight(0xffffff, 0.7);
+        pointLight.castShadow = true;
+
+        pointLight.position.x = this.props.width/2;
+        pointLight.position.y = ((this.props.width + this.props.height)/2);
+        pointLight.position.z = this.props.height/2;
+
+        console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
+
+        this.scene.add( pointLight ); 
+    }
+
 
     /*! Makes the properly positioned maze lines from SVG nodes passed.
      *  - Fixes the corner collisions, to make corners of maze walls look nice.
@@ -86,46 +137,10 @@ class MazeLoader {
         }
     }
 
-    addBasicSceneElements(){
-        // Create the ground plane
-        var planeGeometry = new THREE.PlaneGeometry( 
-            this.props.width, this.props.height, 
-            this.props.width / 4, this.props.height / 4 
-        );
-        var planeMaterial = new THREE.MeshLambertMaterial({
-            color: 0xd1d1d1,
-            side: THREE.DoubleSide
-        });
-        var plane = new THREE.Mesh(planeGeometry,planeMaterial);
-
-        // Rotate and position the plane
-        plane.position.x=0 + this.props.width/2;
-        plane.position.y=0;
-        plane.position.z=0 + this.props.height/2;
-        plane.rotation.x = Math.PI/2;
-
-        plane.receiveShadow = true;
-
-        // Add the plane to the scene
-        this.scene.add(plane);
-
-        // Add ambient and hemispheric light sources.
-        this.scene.add( new THREE.AmbientLight( 0x404040 ) );
-        //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
-
-        // Add the Point Light, and mark it as a shadow caster
-        var pointLight = new THREE.PointLight(0xffffff, 0.7);
-        pointLight.castShadow = true;
-
-        pointLight.position.x = this.props.width/2;
-        pointLight.position.y = ((this.props.width + this.props.height)/2);
-        pointLight.position.z = this.props.height/2;
-
-        console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
-
-        this.scene.add( pointLight ); 
-    }
-
+    /*! Function create a ThreeJS Box with specific coordinates.
+     *  @param lineCoords - a structure representing line coordinates - {x1,y1,x2,y2}.
+     *  @return ThreeJS Mesh object, representing a box just created.
+     */ 
     createWallBoxFromLine( lineCoords ){
         var poss = lineCoords;
         var props = this.props;
@@ -166,24 +181,23 @@ class MazeLoader {
 
     /*! Binds the renderer to canvas, and sets all rendering properties.
      *  - Gets the renderer fully ready to render.
-     *  @param divId - a HTML div to which the canvas will be appended to which renderer will render to.
+     *  @param divId - a HTML div to which the canvas will be appended which renderer will render to.
      */
-    setupRendering(divId, width, height) {
+    setupRendering(){
         // Check if scene is already ready.
         if(!this.ready) return;
         var scene = this.scene;
         var props = this.props;
 
-        var rendSize = {
-            "width" : (width  ? width  : window.innerWidth ),
-            "height": (height ? height : window.innerHeight)
-        };
+        var divId = this.rendProps.divId;
+        var width = this.rendProps.width;
+        var height = this.rendProps.height;
 
         // Create a camera, which defines where we're looking at.
         /*
         this.camera = new THREE.PerspectiveCamera(
             45, 
-            this.renderer.getSize().width / this.renderer.getSize().height, 
+            width / height, 
             0.1, 
             1000
         );
@@ -201,7 +215,7 @@ class MazeLoader {
         */
 
         // Set camera controls.
-        var camera = new THREE.PerspectiveCamera( 60, rendSize.width / rendSize.height, 1, 1000 );
+        var camera = new THREE.PerspectiveCamera( 60, width / height, 1, 1000 );
         camera.position.z = 400;
         camera.position.x = 400;
         camera.position.y = 400;
@@ -233,12 +247,13 @@ class MazeLoader {
                      "\nCameraPos: "+Helper.vecToString(this.camera.position) );
 
         // Create a Renderer and add drawing canvas to Div passed.
+
         this.renderer = new THREE.WebGLRenderer( { 
             antialias: true 
         } );
         this.renderer.setClearColor( new THREE.Color(0xEEEEEE) );
         this.renderer.setPixelRatio( window.devicePixelRatio );
-        this.renderer.setSize( rendSize.width, rendSize.height );
+        this.renderer.setSize( width, height );
 
         // Setup the shadow system.
         this.renderer.shadowMapEnabled = true;
@@ -248,13 +263,9 @@ class MazeLoader {
         this.container = $(divId);
         this.container.append( this.renderer.domElement );
 
-        if(!width)
+        // If size is bound to window's size, change it on each resize.
+        if(width === window.innerWidth && height === window.innerHeight)
             window.addEventListener( 'resize', this.onWindowResize, false );
-
-        // Finally, render a scene.
-        this.render();
-
-        this.animate();
     }
 
     onWindowResize() {
@@ -268,17 +279,23 @@ class MazeLoader {
         this.render();
     }
     
+    /*! Renders the scene.
+     */ 
     render() {
         this.renderer.render(this.scene, this.camera);
         this.stats.update();
     }
 
+    /*! Animate function performing an animations loop.
+     *  Called from outside the renderer to start the loop.
+     */ 
     animate(){
         //stats.begin();
         // monitored code goes here
         //stats.end();
 
-        requestAnimationFrame( this.animate );
+        // Use a binder to bind 
+        requestAnimationFrame( this.animate.bind(this) );
         this.controls.update();
     }
 }
@@ -301,12 +318,19 @@ function loadMaze(svgData, infoDivId, renderDivId){
         var parser = new DOMParser();
         var svgDoc = parser.parseFromString( svgData, "image/svg+xml" );
 
-        var loader = new MazeLoader( svgDoc, {wallHeight:0} );
-        loader.setupRendering( 
-            renderDivId, 
-            parseInt( $(renderDivId).attr("width") ),
-            parseInt( $(renderDivId).attr("height") )
+        var loader = new MazeLoader( 
+            svgDoc, 
+            {
+                wallHeight:15
+            },
+            {
+                "div":    renderDivId, 
+                "width":  parseInt( $(renderDivId).attr("width") ),
+                "height": parseInt( $(renderDivId).attr("height") )
+            }
         );
+        loader.render();
+        loader.animate();
 
     } catch(e) {
         alert(e);
