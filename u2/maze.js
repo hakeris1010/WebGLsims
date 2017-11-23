@@ -113,7 +113,6 @@ class MazeLoader {
     properizeMazeElements( svgNodeArray, elemCallback ){
         var nodes = svgNodeArray;
         var lines = [];
-        var points = [];
 
         for(var i=0; i<nodes.length; i++){
             var skipNode = false; // Set if line needs to be skipp'd (already exists).
@@ -132,79 +131,94 @@ class MazeLoader {
                 };
                 poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
 
-                // Check if there exists some points which could make collisions.
-                for(var j = 0; j < points.length; j++) {
-                    var pt = points[j];
+                // Check if there exists some points which could make collisions, and fix'em.
+                var found = false;
+                for(var j = 0; j < lines.length; j++) {
+                    //if(!found) break;
+
                     var wallWidth = this.props.wallWidth;
 
-                    var diffPtX1 = Math.abs(pt.x - poss.x1);
-                    var diffPtY1 = Math.abs(pt.y - poss.y1);
+                    // Check for intersection between lines.
+                    var interpt = Helper.getLineIntersection( lines[j], poss, true );
 
-                    var diffPtX2 = Math.abs(pt.x - poss.x2);
-                    var diffPtY2 = Math.abs(pt.y - poss.y2);
+                    // Fix intersection by splitting line into two, if possible.
+                    if( interpt ){
+                        var seg1len = Math.sqrt( (poss.x1 - interpt.x)*(poss.x1 - interpt.x) +
+                                                 (poss.y1 - interpt.y)*(poss.y1 - interpt.y) );
 
-                    var coll_1 = (diffPtX1 < wallWidth && diffPtY1 < wallWidth);
-                    var coll_2 = (diffPtX2 < wallWidth && diffPtY2 < wallWidth);
-                    //var coll_1 = (pt.x == poss.x1 && pt.y == poss.y1);
-                    //var coll_2 = (pt.x == poss.x2 && pt.y == poss.y2);
+                        var seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
+                                                 (poss.y2 - interpt.y)*(poss.y2 - interpt.y) );
 
-                    // Resolve collisions by moving point's coordinates such
-                    // that the walls won't collide.
-                    /*if(coll_1 && coll_2){
-                        console.log(" Double collision found on points: "+
-                                    "("+poss.x1+","+poss.y1+"), ("+poss.x2+","+poss.y2+")");
-                        skipNode = true;
-                        poss.collision1 = true;
-                        poss.collision2 = true;
+                        console.log("Found collision: intersection: ("+interpt.x+","+interpt.y+
+                                    "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
+
+                        // If length exceeds half of wall's width, the segment is visible.
+                        if(seg1len > wallWidth/2){
+                            lines.push( {
+                                x1: poss.x1,
+                                y1: poss.y1,
+                                x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
+                                y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
+                                rotation: poss.rotation,
+                                length: seg1len
+                            } );
+                        }
+
+                        if(seg2len > wallWidth/2){
+                            lines.push( {
+                                x1: interpt.x - Math.cos( poss.rotation ) * wallWidth,
+                                y1: interpt.y - Math.sin( poss.rotation ) * wallWidth,
+                                x2: poss.x2,
+                                y2: poss.y2,
+                                rotation: poss.rotation,
+                                length: seg2len
+                            } );
+                        }
+ 
+                        found = true;
                         break;
-                    }*/
-                    if( coll_1 ){
-                        console.log(" Collision found on point: ("+poss.x1+","+poss.y1+")");
 
-                        poss.x1 += Math.cos( poss.rotation ) * (wallWidth - diffPtX1);
-                        poss.y1 += Math.sin( poss.rotation ) * (wallWidth - diffPtY1);
-                        poss.collision1 = true;
-                        break;
-                    }
-                    if( coll_2 ){
-                        console.log(" Collision found on point: ("+poss.x2+","+poss.y2+")");
+                        /*
+                        if( coll_1 ){ 
+							poss.x1 += Math.cos( poss.rotation ) * (wallWidth - diffPtX1);
+							poss.y1 += Math.sin( poss.rotation ) * (wallWidth - diffPtY1);
+							poss.collision1 = true;
+							break;
+						}
+						if( coll_2 ){
+							console.log(" Collision found on point: ("+poss.x2+","+poss.y2+")");
+							var wallWidth = this.props.wallWidth;
 
-                        poss.x2 += Math.cos( poss.rotation ) * (wallWidth - diffPtX2);
-                        poss.y2 += Math.sin( poss.rotation ) * (wallWidth - diffPtY2);
-                        poss.collision2 = true;
-                        break;
+							poss.x2 += Math.cos( poss.rotation ) * (wallWidth - diffPtX2);
+							poss.y2 += Math.sin( poss.rotation ) * (wallWidth - diffPtY2);
+						}
+                        */
                     }
                 }
 
-                if(!poss.collision1)
-                    points.push({x: poss.x1, y: poss.y1});
-
-                if(!poss.collision2)
-                    points.push({x: poss.x2, y: poss.y2});
-
-                // Continue to next iteration if node needs to be skipp'd.
-                if(skipNode)
-                    continue;
-
-                console.log("Converting line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
-                            poss.x2+", y2: "+poss.y2+"}\nPoints lenght: "+points.length);
-
-                // When finished modifying, call a callback.
-                if(elemCallback) {
-                    elemCallback( {
-                        type: "line", 
-                        data: poss 
-                    } );
+                // If no collisions were found, just insert current line.
+                if(!found){
+                    lines.push( poss );
                 }
 
+                //console.log("Converted line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
+                //            poss.x2+", y2: "+poss.y2+"}\nAlready converted: "+lines.length);
                 break;
+            }
+        }
+
+        // Now call a callback for each converted line.
+        for(var i=0; i<lines.length; i++){
+            if(elemCallback) {
+                elemCallback( {
+                    type: "line", 
+                    data: lines[i]
+                } );
             }
         }
     }
 
-    fixLinePointCollision( lines, point ){
-        
-    }
+	
 
     /*! Get the rendering-ready ThreeJS type coords from the svg-style positions.
      *  @param lineCoords - SVG type line coords {x1,y1, x2,y2}
@@ -216,12 +230,15 @@ class MazeLoader {
         retv.yDiff = poss.y2 - poss.y1;
 
         retv.rotation = ( 
-            (typeof poss.rotation === "undefined") ?
+            (typeof poss.rotation !== "undefined") ?
             -1 * poss.rotation :
             -1 * Math.atan( Math.abs( retv.yDiff / retv.xDiff ) )
         );
                     
-        retv.lenght = Math.sqrt( Math.pow(retv.xDiff,2) + Math.pow(retv.yDiff,2) );
+        retv.length = (
+            (typeof poss.length !== "undefined") ? poss.length :
+            Math.sqrt( Math.pow(retv.xDiff,2) + Math.pow(retv.yDiff,2) )
+        );
 
         retv.center = new THREE.Vector3(
             poss.x1 + retv.xDiff/2,
@@ -241,12 +258,12 @@ class MazeLoader {
         var props = this.props;
 
         // DEBUG purposes.
-        //poss.lenght -= 5;
+        poss.length -= 5;
         
         // Create a Wall (Using the ThreeJS's Cube).
         var cubeGeometry = new THREE.BoxGeometry( 
-            poss.lenght + props.wallWidth, props.wallHeight, props.wallWidth,
-            (poss.lenght + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
+            poss.length + props.wallWidth, props.wallHeight, props.wallWidth,
+            (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
         );
         var cubeMaterial = new THREE.MeshLambertMaterial({
             color: 0x816800, 
@@ -270,10 +287,10 @@ class MazeLoader {
         // Rotate the cube around the Y (up) axis counter-clockwise.
         cube.rotation.y = poss.rotation;
 
-        console.log("Line lenght: "+poss.lenght+
+        /*console.log("Line length: "+poss.length+
                     "\n Rotation vec: "+Helper.vecToString(cube.rotation)+
                     "\n Position vec: "+Helper.vecToString(cube.position) );
-
+        */
         return cube;
     }
 
@@ -409,6 +426,50 @@ class Helper{
     static vecToString( vec ){
         return "x: "+vec.x+", y: "+vec.y+", z: "+vec.z;
     };
+
+    static getLineIntersection( seg1, seg2, onlySegments ) {
+        var x1=seg1.x1, x2=seg1.x2, y1=seg1.y1, y2=seg1.y2;
+        var x3=seg2.x1, x4=seg2.x2, y3=seg2.y1, y4=seg2.y2;
+
+        // Find denominator for the line equation coefficient
+		var denom = (y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1);
+		if (denom == 0) {
+			return null;
+		}
+        // Find coefficients of both lines.
+		var ua = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3))/denom;
+		var ub = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3))/denom;
+
+        // Check if intersection is within seg1 and seg2
+        var onSeg1 = ua >= 0 && ua <= 1; 
+        var onSeg2 = ub >= 0 && ub <= 1;
+
+        if(onlySegments && (!onSeg1 || !onSeg2))
+            return null;
+
+		return {
+			x: x1 + ua*(x2 - x1),
+			y: y1 + ua*(y2 - y1),
+			"seg1": onSeg1,
+            "seg2": onSeg2
+        };
+	}
+
+    static getPointDistanceFromLine( point, line ){
+        var x1=line.x1, y1=line.y1;
+        var x2=line.x2, y2=line.y2;
+        var x =point.x, y =point.y;
+
+        // Use the "Shoelace Formula" to find an area of triangle.
+        var area = 0.5 * Math.abs( (x1 - x2)*(y - y1) - (x1 - x)*(y2 - y1) );
+
+        // Now get the length of the base line.
+        var AB = Math.sqrt( (x2-x1)*(x2-x1) + (y2-y1)*(y2-y1) );
+    
+        // Calculate the height from the area formula.
+        return (2 * area) / AB; 
+    }
+
 }
 
 
@@ -447,7 +508,7 @@ function loadMaze(svgData, infoDivId, renderDivId){
         currentLoader.animate();
 
     } catch(e) {
-        alert(e);
+        console.log(e);
     }
 }
 
@@ -463,7 +524,7 @@ function loadMazeFromFile(file, infoDivId){
         fr.readAsText(file);
 
     } catch(e) {
-        alert(e);
+        console.log(e);
     }
 }
  
