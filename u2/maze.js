@@ -112,6 +112,7 @@ class MazeLoader {
      */
     properizeMazeElements( svgNodeArray, elemCallback ){
         var nodes = svgNodeArray;
+        var lines = [];
         var points = [];
 
         for(var i=0; i<nodes.length; i++){
@@ -130,10 +131,11 @@ class MazeLoader {
                     collision2: false
                 };
                 poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
-                
+
                 // Check if there exists some points which could make collisions.
-                for(var j = 0; j < points.size; j++) {
+                for(var j = 0; j < points.length; j++) {
                     var pt = points[j];
+                    var wallWidth = this.props.wallWidth;
 
                     var diffPtX1 = Math.abs(pt.x - poss.x1);
                     var diffPtY1 = Math.abs(pt.y - poss.y1);
@@ -143,22 +145,30 @@ class MazeLoader {
 
                     var coll_1 = (diffPtX1 < wallWidth && diffPtY1 < wallWidth);
                     var coll_2 = (diffPtX2 < wallWidth && diffPtY2 < wallWidth);
+                    //var coll_1 = (pt.x == poss.x1 && pt.y == poss.y1);
+                    //var coll_2 = (pt.x == poss.x2 && pt.y == poss.y2);
 
                     // Resolve collisions by moving point's coordinates such
                     // that the walls won't collide.
-                    if(coll_1 && coll_2){
+                    /*if(coll_1 && coll_2){
+                        console.log(" Double collision found on points: "+
+                                    "("+poss.x1+","+poss.y1+"), ("+poss.x2+","+poss.y2+")");
                         skipNode = true;
                         poss.collision1 = true;
                         poss.collision2 = true;
                         break;
-                    }
-                    else if( coll_1 ){
+                    }*/
+                    if( coll_1 ){
+                        console.log(" Collision found on point: ("+poss.x1+","+poss.y1+")");
+
                         poss.x1 += Math.cos( poss.rotation ) * (wallWidth - diffPtX1);
                         poss.y1 += Math.sin( poss.rotation ) * (wallWidth - diffPtY1);
                         poss.collision1 = true;
                         break;
                     }
-                    else if( coll_2 ){
+                    if( coll_2 ){
+                        console.log(" Collision found on point: ("+poss.x2+","+poss.y2+")");
+
                         poss.x2 += Math.cos( poss.rotation ) * (wallWidth - diffPtX2);
                         poss.y2 += Math.sin( poss.rotation ) * (wallWidth - diffPtY2);
                         poss.collision2 = true;
@@ -166,24 +176,24 @@ class MazeLoader {
                     }
                 }
 
-                if(poss.collision1)
+                if(!poss.collision1)
                     points.push({x: poss.x1, y: poss.y1});
 
-                if(poss.collision2)
+                if(!poss.collision2)
                     points.push({x: poss.x2, y: poss.y2});
 
                 // Continue to next iteration if node needs to be skipp'd.
                 if(skipNode)
                     continue;
-                    
-                // Get the graphical 3D coordinates for rendering.
-                // TODO: Use graphical coords for rendiering.
+
+                console.log("Converting line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
+                            poss.x2+", y2: "+poss.y2+"}\nPoints lenght: "+points.length);
 
                 // When finished modifying, call a callback.
                 if(elemCallback) {
                     elemCallback( {
                         type: "line", 
-                        data: poss
+                        data: poss 
                     } );
                 }
 
@@ -192,21 +202,34 @@ class MazeLoader {
         }
     }
 
-    /*! Gets the rendering coordinate-oriented properties: rotation, axis differences.
-     *  @param lineCoords - SVG type line coords {x1,y1, x2,y2}
-     */ 
-    getLineProps( lineCoords ){
-        var poss = lineCoords;
-        return {
-            xDiff: poss.x2 - poss.x1,
-            yDiff: poss.y2 - poss.y1,
-            
-            xCenter: poss.x1 + xDiff/2,
-            yCenter: poss.y1 + yDiff/2,
+    fixLinePointCollision( lines, point ){
+        
+    }
 
-            lenght: Math.sqrt( Math.pow(xDiff,2) + Math.pow(yDiff,2) ),
-            rotation: -1 * Math.atan( yDiff / xDiff )
-        }
+    /*! Get the rendering-ready ThreeJS type coords from the svg-style positions.
+     *  @param lineCoords - SVG type line coords {x1,y1, x2,y2}
+     *  @return the object with ThreeJS coordinates and props.
+     */ 
+    getLineThreeJsCoords( poss ){
+        var retv = {};
+        retv.xDiff = poss.x2 - poss.x1;
+        retv.yDiff = poss.y2 - poss.y1;
+
+        retv.rotation = ( 
+            (typeof poss.rotation === "undefined") ?
+            -1 * poss.rotation :
+            -1 * Math.atan( Math.abs( retv.yDiff / retv.xDiff ) )
+        );
+                    
+        retv.lenght = Math.sqrt( Math.pow(retv.xDiff,2) + Math.pow(retv.yDiff,2) );
+
+        retv.center = new THREE.Vector3(
+            poss.x1 + retv.xDiff/2,
+            this.props.wallHeight/2,
+            poss.y1 + retv.yDiff/2
+        );
+
+        return retv;
     }
 
     /*! Function create a ThreeJS Box with specific coordinates.
@@ -214,38 +237,41 @@ class MazeLoader {
      *  @return ThreeJS Mesh object, representing a box just created.
      */ 
     createWallBoxFromLine( lineCoords ){
-        var poss = lineCoords;
+        var poss = this.getLineThreeJsCoords( lineCoords );
         var props = this.props;
 
-        var xDiff = poss.x2 - poss.x1;
-        var yDiff = poss.y2 - poss.y1;
-        var lenght = Math.sqrt( Math.pow(xDiff,2) + Math.pow(yDiff,2) );
-
-        var rotation = Math.atan( yDiff / xDiff );
-
+        // DEBUG purposes.
+        //poss.lenght -= 5;
+        
         // Create a Wall (Using the ThreeJS's Cube).
         var cubeGeometry = new THREE.BoxGeometry( 
-            lenght + props.wallWidth, props.wallHeight, props.wallWidth,
-            (lenght + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4,
+            poss.lenght + props.wallWidth, props.wallHeight, props.wallWidth,
+            (poss.lenght + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
         );
         var cubeMaterial = new THREE.MeshLambertMaterial({
-            color: 0x81680085, 
+            color: 0x816800, 
             side: THREE.DoubleSide
         });
+
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
         cube.castShadow = true;
         cube.receiveShadow = true;
 
         // Position the cube. Because Three.JS coordinates are centered, we must
         // set position to line's center.
-        cube.position.x = poss.x1 + xDiff/2;
-        cube.position.z = poss.y1 + yDiff/2;
-        cube.position.y = 0 + props.wallHeight/2;
+        /*cube.position.x = poss.xCenter;
+        cube.position.z = poss.yCenter;
+        cube.position.y = props.wallHeight/2;*/
+
+        cube.position.x = poss.center.x;
+        cube.position.y = poss.center.y;
+        cube.position.z = poss.center.z;
 
         // Rotate the cube around the Y (up) axis counter-clockwise.
-        cube.rotation.y = -1*rotation;
+        cube.rotation.y = poss.rotation;
 
-        console.log(" Converting line to wall: (len: "+lenght+", rot: "+rotation+")."+
+        console.log("Line lenght: "+poss.lenght+
+                    "\n Rotation vec: "+Helper.vecToString(cube.rotation)+
                     "\n Position vec: "+Helper.vecToString(cube.position) );
 
         return cube;
