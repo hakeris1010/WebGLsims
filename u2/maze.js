@@ -160,18 +160,18 @@ class MazeLoader {
                                 x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
                                 y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
                                 rotation: poss.rotation,
-                                length: seg1len
+                                //length: seg1len
                             } );
                         }
 
                         if(seg2len > wallWidth/2){
                             lines.push( {
-                                x1: interpt.x - Math.cos( poss.rotation ) * wallWidth,
-                                y1: interpt.y - Math.sin( poss.rotation ) * wallWidth,
+                                x1: interpt.x + Math.cos( poss.rotation ) * wallWidth,
+                                y1: interpt.y + Math.sin( poss.rotation ) * wallWidth,
                                 x2: poss.x2,
                                 y2: poss.y2,
                                 rotation: poss.rotation,
-                                length: seg2len
+                                //length: seg2len
                             } );
                         }
  
@@ -258,7 +258,7 @@ class MazeLoader {
         var props = this.props;
 
         // DEBUG purposes.
-        poss.length -= 5;
+        poss.length -= 3;
         
         // Create a Wall (Using the ThreeJS's Cube).
         var cubeGeometry = new THREE.BoxGeometry( 
@@ -477,6 +477,22 @@ class Helper{
 
 var currentLoader = null;
 
+function loadMazeDocument(svgDoc, renderDivId){
+    currentLoader = new MazeLoader( 
+        svgDoc, 
+        {
+            wallHeight:15
+        },
+        {
+            "div":    renderDivId, 
+            "width":  parseInt( $(renderDivId).attr("width") ),
+            "height": parseInt( $(renderDivId).attr("height") )
+        }
+    );
+    currentLoader.render();
+    currentLoader.animate();
+}
+
 function loadMaze(svgData, infoDivId, renderDivId){
     try{
         if( currentLoader ){
@@ -493,20 +509,8 @@ function loadMaze(svgData, infoDivId, renderDivId){
         var parser = new DOMParser();
         var svgDoc = parser.parseFromString( svgData, "image/svg+xml" );
 
-        currentLoader = new MazeLoader( 
-            svgDoc, 
-            {
-                wallHeight:15
-            },
-            {
-                "div":    renderDivId, 
-                "width":  parseInt( $(renderDivId).attr("width") ),
-                "height": parseInt( $(renderDivId).attr("height") )
-            }
-        );
-        currentLoader.render();
-        currentLoader.animate();
-
+        loadMazeDocument(svgDoc, renderDivId);
+        
     } catch(e) {
         console.log(e);
     }
@@ -544,89 +548,19 @@ function urlToFileData(url, callback) {
 }
 
 //var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
-var DefaultMazePath = 'maze_1.svg';
+//var DefaultMazePath = 'maze_1.svg';
+var DefaultMazePath = 'testMaze.svg';
 
 $( document ).ready(() => {
-    console.log( "ready!" );
+    console.log( "Ready!" );
     urlToFileData( DefaultMazePath, file => { loadMazeFromFile( file, '#mazeinfo' ); } );
-    
-    //testThreeJS( $('#myCanvas')[0] );
+    //loadMazeDocument( getTestDocument(), '#renderdiv' );
 });
 
-
-/* Three Jay Ess stuff. */
-
-function testThreeJS( canvas ){
-    console.log("canvas: "+canvas+"\n wid: "+canvas.width+"\n hei: "+canvas.height );
-
-	// create a scene, that will hold all our elements such as objects, cameras and lights.
-	var scene = new THREE.Scene();
-
-	// create a camera, which defines where we're looking at.
-	var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-	// create a render and set the size
-	var renderer = new THREE.WebGLRenderer( { "canvas": canvas } );
-
-	renderer.setClearColor( new THREE.Color(0xEEEEEE) );
-	//renderer.setSize(500, 500);
-
-	var axes = new THREE.AxesHelper( 20 );
-	scene.add(axes);
-
-	// create the ground plane
-	var planeGeometry = new THREE.PlaneGeometry(60,20);
-	var planeMaterial = new THREE.MeshBasicMaterial({color: 0xcccccc});
-	var plane = new THREE.Mesh(planeGeometry,planeMaterial);
-
-
-	// rotate and position the plane
-	plane.rotation.x=-0.5*Math.PI;
-	plane.position.x=15
-	plane.position.y=0
-	plane.position.z=0
-
-	// add the plane to the scene
-	scene.add(plane);
-
-	// create a cube
-	var cubeGeometry = new THREE.CubeGeometry(4,4,4);
-	var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true});
-	var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-
-
-	// position the cube
-	cube.position.x=-4;
-	cube.position.y=3;
-	cube.position.z=0;
-
-	// add the cube to the scene
-	scene.add(cube);
-
-	var sphereGeometry = new THREE.SphereGeometry(4,20,20);
-	var sphereMaterial = new THREE.MeshBasicMaterial({color: 0x7777ff, wireframe: true});
-	var sphere = new THREE.Mesh(sphereGeometry,sphereMaterial);
-
-	// position the sphere
-	sphere.position.x=20;
-	sphere.position.y=4;
-	sphere.position.z=2;
-
-
-	// add the sphere to the scene
-	scene.add(sphere);
-
-	// position and point the camera to the center of the scene
-	camera.position.x = -30;
-	camera.position.y = 40;
-	camera.position.z = 30;
-	camera.lookAt(scene.position);
-
-	// add the output of the renderer to the html element
-	//$("#WebGL-output").append(renderer.domElement);
-
-	// render the scene
-	renderer.render(scene, camera);
+/*! Get a test SVG document with specifically alligned lines, for testing.
+ */
+function getTestDocument(){
+    var doc = null;
 }
 
 
