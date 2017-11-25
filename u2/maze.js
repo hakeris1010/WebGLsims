@@ -115,90 +115,32 @@ class MazeLoader {
         var lines = [];
 
         for(var i=0; i<nodes.length; i++){
-            var skipNode = false; // Set if line needs to be skipp'd (already exists).
+            var node = nodes[i];
 
-            switch( nodes[i].nodeName ){
+            switch( node.nodeName ){
             case "line":
                 // Get line point coordinates from attributes
                 var poss = { 
-                    x1: parseInt( nodes[i].getAttribute("x1") ),
-                    x2: parseInt( nodes[i].getAttribute("x2") ),
-                    y1: parseInt( nodes[i].getAttribute("y1") ),
-                    y2: parseInt( nodes[i].getAttribute("y2") ),
-                    
-                    collision1: false,
-                    collision2: false
+                    x1: parseInt( node.getAttribute("x1") ),
+                    x2: parseInt( node.getAttribute("x2") ),
+                    y1: parseInt( node.getAttribute("y1") ),
+                    y2: parseInt( node.getAttribute("y2") ),
                 };
-                poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
+                var properizedLines = this.fixCollisionsForLine( poss, lines );
 
-                // Check if there exists some points which could make collisions, and fix'em.
-                var found = false;
-                for(var j = 0; j < lines.length; j++) {
-                    //if(!found) break;
+                // If no collisions were found, put current line to fixed lines array..
+                if(properizedLines){
+                    properizedLines.forEach( elem => {
+                        lines.push( elem );
 
-                    var wallWidth = this.props.wallWidth;
-
-                    // Check for intersection between lines.
-                    var interpt = Helper.getLineIntersection( lines[j], poss, true );
-
-                    // Fix intersection by splitting line into two, if possible.
-                    if( interpt ){
-                        var seg1len = Math.sqrt( (poss.x1 - interpt.x)*(poss.x1 - interpt.x) +
-                                                 (poss.y1 - interpt.y)*(poss.y1 - interpt.y) );
-
-                        var seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
-                                                 (poss.y2 - interpt.y)*(poss.y2 - interpt.y) );
-
-                        console.log("Found collision: intersection: ("+interpt.x+","+interpt.y+
-                                    "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
-
-                        // If length exceeds half of wall's width, the segment is visible.
-                        if(seg1len > wallWidth/2){
-                            lines.push( {
-                                x1: poss.x1,
-                                y1: poss.y1,
-                                x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
-                                y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
-                                rotation: poss.rotation,
-                                //length: seg1len
+                        // Call a callback if it exists.
+                        if(elemCallback) {
+                            elemCallback( {
+                                type: "line", 
+                                data: elem
                             } );
                         }
-
-                        if(seg2len > wallWidth/2){
-                            lines.push( {
-                                x1: interpt.x + Math.cos( poss.rotation ) * wallWidth,
-                                y1: interpt.y + Math.sin( poss.rotation ) * wallWidth,
-                                x2: poss.x2,
-                                y2: poss.y2,
-                                rotation: poss.rotation,
-                                //length: seg2len
-                            } );
-                        }
- 
-                        found = true;
-                        break;
-
-                        /*
-                        if( coll_1 ){ 
-							poss.x1 += Math.cos( poss.rotation ) * (wallWidth - diffPtX1);
-							poss.y1 += Math.sin( poss.rotation ) * (wallWidth - diffPtY1);
-							poss.collision1 = true;
-							break;
-						}
-						if( coll_2 ){
-							console.log(" Collision found on point: ("+poss.x2+","+poss.y2+")");
-							var wallWidth = this.props.wallWidth;
-
-							poss.x2 += Math.cos( poss.rotation ) * (wallWidth - diffPtX2);
-							poss.y2 += Math.sin( poss.rotation ) * (wallWidth - diffPtY2);
-						}
-                        */
                     }
-                }
-
-                // If no collisions were found, just insert current line.
-                if(!found){
-                    lines.push( poss );
                 }
 
                 //console.log("Converted line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
@@ -206,19 +148,67 @@ class MazeLoader {
                 break;
             }
         }
-
-        // Now call a callback for each converted line.
-        for(var i=0; i<lines.length; i++){
-            if(elemCallback) {
-                elemCallback( {
-                    type: "line", 
-                    data: lines[i]
-                } );
-            }
-        }
     }
 
-	
+    /*! Fixes the collisions between lines by splitting the current line.
+     * @return an array of fixed lines. 
+     */ 
+    fixCollisionsForLine( currentLine, otherLines ){
+        var lines = otherLines;
+        var poss = currentLine;
+        poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
+
+        // Check if there exists some points which could make collisions, and fix'em.
+        var found = false;
+        for(var j = 0; j < lines.length; j++) {
+            //if(!found) break;
+
+            var wallWidth = this.props.wallWidth;
+
+            // Check for intersection between lines.
+            var interpt = Helper.getLineIntersection( lines[j], poss, true );
+
+            // Fix intersection by splitting line into two, if possible.
+            if( interpt ){
+                var seg1len = Math.sqrt( (poss.x1 - interpt.x)*(poss.x1 - interpt.x) +
+                                         (poss.y1 - interpt.y)*(poss.y1 - interpt.y) );
+
+                var seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
+                                         (poss.y2 - interpt.y)*(poss.y2 - interpt.y) );
+
+                console.log("Found collision: intersection: ("+interpt.x+","+interpt.y+
+                            "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
+
+                // If length exceeds half of wall's width, the segment is visible.
+                if(seg1len > wallWidth/2){
+                    nodesToProcess.push( {
+                        x1: poss.x1,
+                        y1: poss.y1,
+                        x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
+                        y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
+                        rotation: poss.rotation,
+                        //length: seg1len
+                    } );
+                }
+
+                if(seg2len > wallWidth/2){
+                    nodesToProcess.push( {
+                        x1: interpt.x + Math.cos( poss.rotation ) * wallWidth,
+                        y1: interpt.y + Math.sin( poss.rotation ) * wallWidth,
+                        x2: poss.x2,
+                        y2: poss.y2,
+                        rotation: poss.rotation,
+                        //length: seg2len
+                    } );
+                }
+
+                found = true;
+                break;
+            }
+        }
+
+        return poss;
+    }
 
     /*! Get the rendering-ready ThreeJS type coords from the svg-style positions.
      *  @param lineCoords - SVG type line coords {x1,y1, x2,y2}
@@ -276,10 +266,6 @@ class MazeLoader {
 
         // Position the cube. Because Three.JS coordinates are centered, we must
         // set position to line's center.
-        /*cube.position.x = poss.xCenter;
-        cube.position.z = poss.yCenter;
-        cube.position.y = props.wallHeight/2;*/
-
         cube.position.x = poss.center.x;
         cube.position.y = poss.center.y;
         cube.position.z = poss.center.z;
