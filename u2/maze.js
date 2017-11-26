@@ -5,11 +5,13 @@ class MazeLoader {
      *  - mazeProps - object containing specific options for constructing a scene.
      */ 
     constructor( baseDoc, mazeProps, renderProps ) {
+        var DEBUG = true;
+
         // Maze's default properties.
         this.props = { wallHeight: 15, wallWidth: 5 };
         this.baseSvgDocument = baseDoc;
 
-        console.log("Maze parsing started: \n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
+        DEBUG && console.log("Maze parsing started: \n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
 
         var doc = baseDoc.documentElement;
         var title = doc.getElementsByTagName("title")[0];
@@ -25,11 +27,11 @@ class MazeLoader {
             "height": (renderProps.height ? renderProps.height : window.innerHeight)
         };
 
-        console.log("Title: "+(title ? title.innerHTML : 'undefined')+"\nMazeWidth: "+
+        DEBUG && console.log("Title: "+(title ? title.innerHTML : 'undefined')+"\nMazeWidth: "+
                     this.props.width+"\nMazeHeight: "+this.props.height);
 
         this.svgMainG = doc.getElementsByTagName("g")[0];
-        console.log("main G: "+this.svgMainG+", childs: "+this.svgMainG.childElementCount);
+        DEBUG && console.log("main G: "+this.svgMainG+", childs: "+this.svgMainG.childElementCount);
 
         this.createScene();
         this.setupRendering();
@@ -60,6 +62,8 @@ class MazeLoader {
     /*! Adds basic elements to scene: ground plane, and lights.
      */
     addBasicSceneElements(){
+        var DEBUG = true;
+
         // Create the ground plane
         var planeGeometry = new THREE.PlaneGeometry( 
             this.props.width, this.props.height, 
@@ -94,7 +98,7 @@ class MazeLoader {
         pointLight.position.y = ((this.props.width + this.props.height)/2);
         pointLight.position.z = this.props.height/2;
 
-        console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
+        DEBUG && console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
 
         this.scene.add( pointLight ); 
 
@@ -111,6 +115,8 @@ class MazeLoader {
      *                        successfully converted element.
      */
     properizeMazeElements( svgNodeArray, elemCallback ){
+        var DEBUG = true;
+
         var nodes = svgNodeArray;
         var lines = [];
 
@@ -135,13 +141,14 @@ class MazeLoader {
                     } );
                 }
 
-                //console.log("Converted line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
+                //DEBUG && console.log("Converted line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
                 //            poss.x2+", y2: "+poss.y2+"}\nAlready converted: "+lines.length);
                 break;
             }
         }
 
         // Call a callback for each converted line.
+        DEBUG && console.log("\nCount of Final Lines: "+lines.length+"\n");
         lines.forEach( elem => {
             if(elemCallback) {
                 elemCallback( {
@@ -155,16 +162,23 @@ class MazeLoader {
     /*! Fixes the collisions between lines by splitting the current line.
      * @return an array of fixed lines. 
      */ 
-    fixCollisionsForLine( currentLine, otherLines, startOn ){
+    fixCollisionsForLine( currentLine, otherLines, startOn=0, recLevel=0 ){
+        var DEBUG = true;
+
         var lines = otherLines;
         var retlines = [];
+        var segments = [];
          
         var poss = currentLine;
         poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
 
+        var recMargin = "*".repeat(recLevel+1);
+        DEBUG && console.log("\n"+recMargin+"Properizing a Line. Lines.len:"+
+                    lines.length+", startOn: "+startOn);
+
         // Check if there exists some points which could make collisions, and fix'em.
-        var found = false;
-        for(var i = startOn; i < lines.length; i++) {
+        var i;
+        for(i = startOn; i < lines.length; i++) {
             var wallWidth = this.props.wallWidth;
 
             // Check for intersection between lines.
@@ -173,7 +187,6 @@ class MazeLoader {
             // Fix intersection by splitting line into two, if possible.
             if( interpt ){
                 var seg1len = 0, seg2len = 0;
-                var segments = [];
 
                 // Check if lines are not overlapping, but have an intersection point.
                 if(!interpt.overlap){
@@ -183,8 +196,9 @@ class MazeLoader {
                     seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
                                          (poss.y2 - interpt.y)*(poss.y2 - interpt.y) );
 
-                    console.log("Found collision: intersection: ("+interpt.x+","+interpt.y+
-                            "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
+                    DEBUG && console.log(recMargin+
+                        "Found collision: intersection: ("+interpt.x+","+interpt.y+
+                        "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
 
                     // If length exceeds half of wall's width, the segment is visible.
                     if(seg1len > wallWidth/2){
@@ -209,14 +223,18 @@ class MazeLoader {
                 }
                 // Lines are collinear, and Overlap exists.
                 else{
+                    DEBUG && console.log(recMargin+"Found overlap: start: ("+
+                        interpt.startX+","+interpt.startY+"), end: ("+interpt.endX+
+                        ","+interpt.endY+"), inside: "+interpt.inside);
+
                     // If one segment is inside the other, one of them must be removed.
                     if(interpt.inside == 1){ // First inside (lines[i] is inside poss).
                         // Remove lines[i], and continue the collision search.
                         lines.splice(i, 1);
                     }
                     else if(interpt.inside == 1){ // Second inside (poss is inside lines[i]).
-                        // Just return null, because this line can be skipped.
-                        return null;
+                        // Just return empty array, because this line can be skipped.
+                        return retlines;
                     }
                     else{ // No elements are inside each other, but we have an overlap.
                         // Just remove lines[i], and start properizing new line,
@@ -228,20 +246,30 @@ class MazeLoader {
                         segments.push(seg);
                     }
                 }
-
-                // Now for each segment recursively call this fixer function.
-                segments.forEach( elem => {
-                    //retlines.concat( this.fixCollisionsForLine( elem, lines, i ) );
-                    retlines.push(elem);
-                } );
-
+                
                 break;
             }
         }
 
+        // Now for each segment recursively call this fixer function.
+        segments.forEach( elem => {
+            var recursiveRet = this.fixCollisionsForLine( elem, lines, i, recLevel+1 );
+            if(recursiveRet){
+                DEBUG && console.log(recMargin+"Got from recursion: "+recursiveRet.length);
+                recursiveRet.forEach( el => { retlines.push(el); } );
+            }
+        } );
+
         // If no collisions were found - no segmentations were made. 
         if(!retlines.length) 
             retlines.push(poss); // Just push the unmodified line which was passed.
+
+        DEBUG && console.log(recMargin+ "End. lines.length: "+lines.length+
+            ", retlines.lenght: "+retlines.length+", retlines:");
+        retlines.forEach( el => {
+            DEBUG && console.log(recMargin+" p1=("+el.x1+","+el.y1+
+                "), p2=("+el.x2+","+el.y2+"), rot="+el.rotation);
+        } );
 
         return retlines;
     }
@@ -280,6 +308,8 @@ class MazeLoader {
      *  @return ThreeJS Mesh object, representing a box just created.
      */ 
     createWallBoxFromLine( lineCoords ){
+        var DEBUG = true;
+
         var poss = this.getLineThreeJsCoords( lineCoords );
         var props = this.props;
 
@@ -309,7 +339,7 @@ class MazeLoader {
         // Rotate the cube around the Y (up) axis counter-clockwise.
         cube.rotation.y = poss.rotation;
 
-        /*console.log("Line length: "+poss.length+
+        /*DEBUG && console.log("Line length: "+poss.length+
                     "\n Rotation vec: "+Helper.vecToString(cube.rotation)+
                     "\n Position vec: "+Helper.vecToString(cube.position) );
         */
@@ -321,6 +351,8 @@ class MazeLoader {
      *  @param divId - a HTML div to which the canvas will be appended which renderer will render to.
      */
     setupRendering(){
+        var DEBUG = true;
+
         // Check if scene is already ready.
         if(!this.ready) return;
         var scene = this.scene;
@@ -375,7 +407,7 @@ class MazeLoader {
         this.stats = new Stats();
         //this.container.append( this.stats.dom );
 
-        console.log( "ScenePos: "+Helper.vecToString(scene.position)+
+        DEBUG && console.log( "ScenePos: "+Helper.vecToString(scene.position)+
                      "\nCameraPos: "+Helper.vecToString(this.camera.position) );
 
         // Create a Renderer and add drawing canvas to Div passed.
@@ -585,6 +617,7 @@ class Helper{
 
 //============ UI part =============//
 
+var DEBUG = true;
 var currentLoader = null;
 
 function loadMazeDocument(svgDoc, renderDivId){
@@ -622,7 +655,7 @@ function loadMaze(svgData, infoDivId, renderDivId){
         loadMazeDocument(svgDoc, renderDivId);
         
     } catch(e) {
-        console.log(e);
+        DEBUG && console.log(e);
     }
 }
 
@@ -630,7 +663,7 @@ function loadMaze(svgData, infoDivId, renderDivId){
 function loadMazeFromFile(file, infoDivId){
     // Print the file details
     $(infoDivId).html( "<p>Name: "+file.name+"<br>Size: "+file.size+"</p>" );
-    console.log("Loading File"+file);
+    DEBUG && console.log("Loading File"+file);
 
     try{
         var fr = new FileReader();
@@ -638,7 +671,7 @@ function loadMazeFromFile(file, infoDivId){
         fr.readAsText(file);
 
     } catch(e) {
-        console.log(e);
+        DEBUG && console.log(e);
     }
 }
  
@@ -653,7 +686,7 @@ function urlToFileData(url, callback) {
             callback( new File( [res], url, {name: url, lastModified: Date.now()} ) );
         })    
         .catch(error => {
-            console.log("Request failed: ", error);
+            DEBUG && console.log("Request failed: ", error);
         })
 }
 
@@ -662,7 +695,7 @@ var DefaultMazePath = 'maze_1.svg';
 //var DefaultMazePath = 'testMaze.svg';
 
 $( document ).ready(() => {
-    console.log( "Ready!" );
+    DEBUG && console.log( "Ready!" );
     urlToFileData( DefaultMazePath, file => { loadMazeFromFile( file, '#mazeinfo' ); } );
     //loadMazeDocument( getTestDocument(), '#renderdiv' );
 });
