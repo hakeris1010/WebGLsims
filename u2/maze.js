@@ -1,17 +1,45 @@
 
+/**
+ *  SVG Maze Loading class.
+ *  - Uses ThreeJS library to load a SVG-defined maze as a 3D object, and render it 
+ *    to a canvas.
+ *  - TODO: Many additional features can be enabled - animations, game mode, 
+ *          shortest path tracking, etc...
+ *  - TODO: Document all tweakable properties.
+ */
 class MazeLoader {
-    /*! Constructs a Three.Scene from a SVGDocument and specified 3D properties.
-     *  - doc - a SVGDocument object containing a SVG data source.
-     *  - mazeProps - object containing specific options for constructing a scene.
+    /** 
+     * Constructs a Three.Scene from a SVGDocument and specified 3D properties.
+     * @constructor
+     *  @param doc - a SVGDocument object containing a SVG data source.
+     *  @param mazeProps - object containing specific options for constructing a scene.
+     *  @param renderProps - object containing the rendering data (canvas, viewport size).
      */ 
     constructor( baseDoc, mazeProps, renderProps ) {
         var DEBUG = true;
 
         // Maze's default properties.
-        this.props = { wallHeight: 15, wallWidth: 5 };
+        this.props = { 
+            wallHeight: 15, wallWidth: 5, wallLengthExtend: 0, 
+            wallColor: "random", groundColor: 0x808080, useShadows: false
+        };
         this.baseSvgDocument = baseDoc;
 
-        DEBUG && console.log("Maze parsing started: \n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
+        // TODO: Implement all these properties.
+        var propertiesToCheck = [
+            "wallHeight", "wallWidth", "wallLengthExtend", 
+            "wallColor", "groundColor", "useShadows", "lightIntensity", "lightHeight",
+            "enableCameraControls", "mazeRotationSpeed", "centerFigure", 
+            "shortestPathTracker", "trackerSpeed", "trackerLight"
+        ];
+
+        // Add maze properties from the props's passed.
+        propertiesToCheck.forEach( item => {
+            if(typeof mazeProps[item] !== "undefined") 
+                this.props[item] = mazeProps[item];
+        } );
+
+        DEBUG && console.log("Maze parsing started:\n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
 
         var doc = baseDoc.documentElement;
         var title = doc.getElementsByTagName("title")[0];
@@ -37,7 +65,8 @@ class MazeLoader {
         this.setupRendering();
     }
 
-    /*! Creates a scene containing all maze elements.
+    /** 
+     * Creates a scene containing all maze elements.
      */ 
     createScene(){
         // ThreeJS scene containing the maze.
@@ -59,7 +88,8 @@ class MazeLoader {
         this.ready = true;
     }
 
-    /*! Adds basic elements to scene: ground plane, and lights.
+    /** 
+     * Adds basic elements to scene: ground plane, and lights.
      */
     addBasicSceneElements(){
         var DEBUG = true;
@@ -70,7 +100,7 @@ class MazeLoader {
             this.props.width / 4, this.props.height / 4 
         );
         var planeMaterial = new THREE.MeshLambertMaterial({
-            color: 0x808080,
+            color: this.props.groundColor,
             side: THREE.DoubleSide
         });
         var plane = new THREE.Mesh(planeGeometry,planeMaterial);
@@ -108,7 +138,8 @@ class MazeLoader {
     }
 
 
-    /*! Makes the properly positioned maze lines from SVG nodes passed.
+    /** 
+     * Makes the properly positioned maze lines from SVG nodes passed.
      *  - Fixes the corner collisions, to make corners of maze walls look nice.
      *  @param svgNodeArray - an array-like Node collection, containing SVG nodes.
      *  @param elemCallback - an optional callback to call after each 
@@ -140,9 +171,6 @@ class MazeLoader {
                         lines.push( elem );
                     } );
                 }
-
-                //DEBUG && console.log("Converted line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
-                //            poss.x2+", y2: "+poss.y2+"}\nAlready converted: "+lines.length);
                 break;
             }
         }
@@ -159,11 +187,21 @@ class MazeLoader {
         } );
     }
 
-    /*! Fixes the collisions between lines by splitting the current line.
-     * @return an array of fixed lines. 
+    /** 
+     * Fixes the collisions between lines by splitting the current line.
+     * @param currentLine - the line being modified to fix collisions.
+     * @param otherLines - an array of lines to which the currentLine will be 
+     *      compared to find collisions.
+     *      NOTE: this array may be modified to fix some already existing collisions.
+     * @param startOn - start iterating over otherLines on this index. Default 0.
+     * @param recLevel - recursion level. Reserved only for this function itself.
+     *
+     * @return an array of lines got by splitting the current line to fix collisions.
+     *
+     * FIXME: Lines collide when wallWidth is higher than wallLength.
      */ 
     fixCollisionsForLine( currentLine, otherLines, startOn=0, recLevel=0 ){
-        var DEBUG = true;
+        var DEBUG = false;
 
         var lines = otherLines;
         var retlines = [];
@@ -274,7 +312,8 @@ class MazeLoader {
         return retlines;
     }
 
-    /*! Get the rendering-ready ThreeJS type coords from the svg-style positions.
+    /** 
+     * Get the rendering-ready ThreeJS type coords from the svg-style positions.
      *  @param lineCoords - SVG type line coords {x1,y1, x2,y2}
      *  @return the object with ThreeJS coordinates and props.
      */ 
@@ -303,7 +342,8 @@ class MazeLoader {
         return retv;
     }
 
-    /*! Function create a ThreeJS Box with specific coordinates.
+    /** 
+     * Function create a ThreeJS Box with specific coordinates.
      *  @param lineCoords - a structure representing line coordinates - {x1,y1,x2,y2}.
      *  @return ThreeJS Mesh object, representing a box just created.
      */ 
@@ -314,7 +354,7 @@ class MazeLoader {
         var props = this.props;
 
         // DEBUG purposes.
-        poss.length -= 3;
+        poss.length += props.wallLengthExtend;
         
         // Create a Wall (Using the ThreeJS's Cube).
         var cubeGeometry = new THREE.BoxGeometry( 
@@ -322,7 +362,7 @@ class MazeLoader {
             (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
         );
         var cubeMaterial = new THREE.MeshLambertMaterial({
-            color: Math.random()*0xffffff, 
+            color: (props.wallColor==="random" ? Math.random()*0xffffff : props.wallColor),
             side: THREE.DoubleSide
         });
 
@@ -346,7 +386,8 @@ class MazeLoader {
         return cube;
     }
 
-    /*! Binds the renderer to canvas, and sets all rendering properties.
+    /** 
+     * Binds the renderer to canvas, and sets all rendering properties.
      *  - Gets the renderer fully ready to render.
      *  @param divId - a HTML div to which the canvas will be appended which renderer will render to.
      */
@@ -420,8 +461,10 @@ class MazeLoader {
         this.renderer.setSize( width, height );
 
         // Setup the shadow system.
-        this.renderer.shadowMapEnabled = true;
-        this.renderer.shadowMapType = THREE.PCFSoftShadowMap; // Anti-aliasing.
+        if(this.props.useShadows){
+            this.renderer.shadowMapEnabled = true;
+            this.renderer.shadowMapType = THREE.PCFSoftShadowMap; // Anti-aliasing.
+        }
 
         // Add render canvas to the container
         this.container = $(divId);
@@ -443,7 +486,8 @@ class MazeLoader {
         this.render();
     }
     
-    /*! Renders the scene.
+    /** 
+     * Renders the scene.
      */ 
     render() {
         //if(this.stop) return;
@@ -452,7 +496,8 @@ class MazeLoader {
         this.stats.update();
     }
 
-    /*! Animate function performing an animations loop.
+    /** 
+     * Animate function performing an animations loop.
      *  Called from outside the renderer to start the loop.
      */ 
     animate(){
@@ -467,7 +512,8 @@ class MazeLoader {
         this.animationID = requestAnimationFrame( this.animate.bind(this) );
     }
 
-    /*! Stop rendering and destroy the loader.
+    /** 
+     * Stop rendering and destroy the loader.
      */ 
     destroy(){
         this.stop = true;
@@ -475,12 +521,36 @@ class MazeLoader {
             cancelAnimationFrame( this.animationID );
     }
 }
-
+ 
+/** 
+ * Various helpers.
+ * - Includes useful mathematical functions for working with coordinates.
+ */ 
 class Helper{
+    /** Converts a vector {x, y, z} to string.
+     */ 
     static vecToString( vec ){
         return "x: "+vec.x+", y: "+vec.y+", z: "+vec.z;
     };
 
+    /**
+     *  Get intersection point / overlap section of 2 line segments.
+     *  - Uses the determinant intersection formula for finding an intersection point
+     *  - If line segments are collinear, automatically calls getOverlap,
+     *    to get an overlap region.
+     *
+     *  @param seg1 - First line segment (an object with properties {x1,y1, x2,y2})
+     *  @param seg2 - Second line segment.
+     *  @param onlySegments {boolean} - If set, return intersection only if 
+     *      intersection is within the passed line segments, not beyond them.
+     *
+     *  @return {object} - an object with these properties:
+     *   @property overlap {boolean} - set if segments overlap
+     *     if not overlap:
+     *   @property x, y {int}- intersection point coordinates
+     *   @property seg1, seg2 - intersection point is within seg1 or seg2 respectively
+     *     If overlap, returns values from getLineOverlap function.
+     */ 
     static getLineIntersection( seg1, seg2, onlySegments ) {
         var x1=seg1.x1, x2=seg1.x2, y1=seg1.y1, y2=seg1.y2;
         var x3=seg2.x1, x4=seg2.x2, y3=seg2.y1, y4=seg2.y2;
@@ -491,7 +561,7 @@ class Helper{
         // Lines are parallel. But if collinear, we must make more calculations.
 		if (denom == 0) {
             // Find overlap of the lines. If value is returned, they overlap.
-            var olap = Helper.findOverlapWithThreshold( x1,y1, x2,y2, x3,y3, x4,y4 );
+            var olap = Helper.getLineOverlap( x1,y1, x2,y2, x3,y3, x4,y4 );
             if( olap ){
                 olap.overlap = true;
                 return olap;
@@ -520,7 +590,20 @@ class Helper{
         };
 	}
 
-    static findOverlapWithThreshold( x1,y1, x2,y2, x3,y3, x4,y4, threshold ){
+    /**
+     * Gets the overlap section of 2 collinear line segments.
+     * - Uses the triangle area to find out if segments collinear,
+     * - If yes, uses simple comparisons to find the overlapping section.
+     * @param x1,y1, x2,y2, x3,y3, x4,y4 - coordinates of segment 1 and segment 2 
+     *                                     start and end points, respectively.
+     * @return {object} - an object with these properties:
+     *  @property startX, startY - overlap start coords
+     *  @property endX, endY   - overlap end coords
+     *  @property inside {int} - which segment is inside another (if 0, no inside segments).
+     *  @property wholeLine - if no segments are inside each other, the coords of the 
+     *                        line encompassing both segments.  
+     */ 
+    static getLineOverlap( x1,y1, x2,y2, x3,y3, x4,y4 ){
         // Check if collinear.
         if( Helper.getTriangleArea( x1,y1, x2,y2, x3,y3 ) == 0 ){
             // Lines are collinear. Now ensure that x1 < x2 < x3 < x4, for easier computing.
@@ -528,12 +611,12 @@ class Helper{
             var compareX = !compareY;
 
             if(compareY ? y1 > y2 : x1 > x2){
-                tx = x1; ty = y1;
+                var tx = x1, ty = y1;
                 x1 = x2; y1 = y2;
                 x2 = tx; y2 = ty;
             }
             if(compareY ? y3 > y4 : x3 > x4){
-                tx = x3; ty = y3;
+                var tx = x3, ty = y3;
                 x3 = x4; y3 = y4;
                 x4 = tx; y4 = ty;
             } 
@@ -591,11 +674,22 @@ class Helper{
         return null;
     }
 
+    /**
+     * Uses the "Shoelace Formula" to find an area of triangle from 3 points.
+     * @param x1,y1, x2,y2, x3,y3 - coordinates of point 1,2, and 3 respectively.
+     * @return {int} an area of the triangle.
+     */ 
     static getTriangleArea( x1,y1, x2,y2, x3,y3 ){
-        // Use the "Shoelace Formula" to find an area of triangle.
         return ( x1*y2 + x2*y3 + x3*y1 - x1*y3 - x2*y1 - x3*y2 ) / 2
     }
 
+    /**
+     *  Gets the distance from point to a line.
+     *  - Uses the triangle formed from 3 points to find it's height - the distance.
+     *  @param point - the point which distance from the line is being calculated.
+     *  @param line - the line.
+     *  @return {int} a distance from point to line.
+     */ 
     static getPointDistanceFromLine( point, line ){
         var x1=line.x1, y1=line.y1;
         var x2=line.x2, y2=line.y2;
@@ -624,7 +718,10 @@ function loadMazeDocument(svgDoc, renderDivId){
     currentLoader = new MazeLoader( 
         svgDoc, 
         {
-            wallHeight:15
+            wallHeight: 15,
+            wallWidth: 6,       
+            wallLengthExtend: 0, // -3
+            useShadows: false
         },
         {
             "div":    renderDivId, 
@@ -675,7 +772,8 @@ function loadMazeFromFile(file, infoDivId){
     }
 }
  
-/*! Gets the raw file from the url specified. Calls a callback with the file received.
+/** 
+ * Gets the raw file from the url specified. Calls a callback with the file received.
  * @param url - an URL path to a file
  * @param callback( file ) - a callback with a single File type parameter.
  */ 
@@ -700,7 +798,8 @@ $( document ).ready(() => {
     //loadMazeDocument( getTestDocument(), '#renderdiv' );
 });
 
-/*! Get a test SVG document with specifically alligned lines, for testing.
+/** 
+ * Get a test SVG document with specifically alligned lines, for testing.
  */
 function getTestDocument(){
     var doc = null;
