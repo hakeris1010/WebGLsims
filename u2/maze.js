@@ -126,21 +126,13 @@ class MazeLoader {
                     y1: parseInt( node.getAttribute("y1") ),
                     y2: parseInt( node.getAttribute("y2") ),
                 };
-                var properizedLines = this.fixCollisionsForLine( poss, lines );
+                var properizedLines = this.fixCollisionsForLine( poss, lines, 0 );
 
                 // If no collisions were found, put current line to fixed lines array..
                 if(properizedLines){
                     properizedLines.forEach( elem => {
                         lines.push( elem );
-
-                        // Call a callback if it exists.
-                        if(elemCallback) {
-                            elemCallback( {
-                                type: "line", 
-                                data: elem
-                            } );
-                        }
-                    }
+                    } );
                 }
 
                 //console.log("Converted line: {x1: "+poss.x1+", y1: "+poss.y1+", x2: "+
@@ -148,66 +140,110 @@ class MazeLoader {
                 break;
             }
         }
+
+        // Call a callback for each converted line.
+        lines.forEach( elem => {
+            if(elemCallback) {
+                elemCallback( {
+                    type: "line", 
+                    data: elem
+                } );
+            }
+        } );
     }
 
     /*! Fixes the collisions between lines by splitting the current line.
      * @return an array of fixed lines. 
      */ 
-    fixCollisionsForLine( currentLine, otherLines ){
+    fixCollisionsForLine( currentLine, otherLines, startOn ){
         var lines = otherLines;
+        var retlines = [];
+         
         var poss = currentLine;
         poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
 
         // Check if there exists some points which could make collisions, and fix'em.
         var found = false;
-        for(var j = 0; j < lines.length; j++) {
-            //if(!found) break;
-
+        for(var i = startOn; i < lines.length; i++) {
             var wallWidth = this.props.wallWidth;
 
             // Check for intersection between lines.
-            var interpt = Helper.getLineIntersection( lines[j], poss, true );
+            var interpt = Helper.getLineIntersection( lines[i], poss, true );
 
             // Fix intersection by splitting line into two, if possible.
             if( interpt ){
-                var seg1len = Math.sqrt( (poss.x1 - interpt.x)*(poss.x1 - interpt.x) +
+                var seg1len = 0, seg2len = 0;
+                var segments = [];
+
+                // Check if lines are not overlapping, but have an intersection point.
+                if(!interpt.overlap){
+                    seg1len = Math.sqrt( (poss.x1 - interpt.x)*(poss.x1 - interpt.x) +
                                          (poss.y1 - interpt.y)*(poss.y1 - interpt.y) );
 
-                var seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
+                    seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
                                          (poss.y2 - interpt.y)*(poss.y2 - interpt.y) );
 
-                console.log("Found collision: intersection: ("+interpt.x+","+interpt.y+
+                    console.log("Found collision: intersection: ("+interpt.x+","+interpt.y+
                             "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
 
-                // If length exceeds half of wall's width, the segment is visible.
-                if(seg1len > wallWidth/2){
-                    nodesToProcess.push( {
-                        x1: poss.x1,
-                        y1: poss.y1,
-                        x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
-                        y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
-                        rotation: poss.rotation,
-                        //length: seg1len
-                    } );
+                    // If length exceeds half of wall's width, the segment is visible.
+                    if(seg1len > wallWidth/2){
+                        segments.push( {
+                            x1: poss.x1,
+                            y1: poss.y1,
+                            x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
+                            y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
+                            rotation: poss.rotation,
+                        } ); 
+                    }
+
+                    if(seg2len > wallWidth/2){
+                        segments.push( {
+                            x1: interpt.x + Math.cos( poss.rotation ) * wallWidth,
+                            y1: interpt.y + Math.sin( poss.rotation ) * wallWidth,
+                            x2: poss.x2,
+                            y2: poss.y2,
+                            rotation: poss.rotation,
+                        } );
+                    }
+                }
+                // Lines are collinear, and Overlap exists.
+                else{
+                    // If one segment is inside the other, one of them must be removed.
+                    if(interpt.inside == 1){ // First inside (lines[i] is inside poss).
+                        // Remove lines[i], and continue the collision search.
+                        lines.splice(i, 1);
+                    }
+                    else if(interpt.inside == 1){ // Second inside (poss is inside lines[i]).
+                        // Just return null, because this line can be skipped.
+                        return null;
+                    }
+                    else{ // No elements are inside each other, but we have an overlap.
+                        // Just remove lines[i], and start properizing new line,
+                        // which encompasses both lines[i] and poss.
+                        lines.splice(i, 1);
+
+                        var seg = interpt.wholeLine;
+                        seg.rotation = poss.rotation;
+                        segments.push(seg);
+                    }
                 }
 
-                if(seg2len > wallWidth/2){
-                    nodesToProcess.push( {
-                        x1: interpt.x + Math.cos( poss.rotation ) * wallWidth,
-                        y1: interpt.y + Math.sin( poss.rotation ) * wallWidth,
-                        x2: poss.x2,
-                        y2: poss.y2,
-                        rotation: poss.rotation,
-                        //length: seg2len
-                    } );
-                }
+                // Now for each segment recursively call this fixer function.
+                segments.forEach( elem => {
+                    //retlines.concat( this.fixCollisionsForLine( elem, lines, i ) );
+                    retlines.push(elem);
+                } );
 
-                found = true;
                 break;
             }
         }
 
-        return poss;
+        // If no collisions were found - no segmentations were made. 
+        if(!retlines.length) 
+            retlines.push(poss); // Just push the unmodified line which was passed.
+
+        return retlines;
     }
 
     /*! Get the rendering-ready ThreeJS type coords from the svg-style positions.
@@ -256,7 +292,7 @@ class MazeLoader {
             (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
         );
         var cubeMaterial = new THREE.MeshLambertMaterial({
-            color: 0x816800, 
+            color: Math.random()*0xffffff, 
             side: THREE.DoubleSide
         });
 
@@ -417,14 +453,24 @@ class Helper{
         var x1=seg1.x1, x2=seg1.x2, y1=seg1.y1, y2=seg1.y2;
         var x3=seg2.x1, x4=seg2.x2, y3=seg2.y1, y4=seg2.y2;
 
-        // Find denominator for the line equation coefficient
+        // Find denominator for the determinant line equation.
 		var denom = (y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1);
+
+        // Lines are parallel. But if collinear, we must make more calculations.
 		if (denom == 0) {
-			return null;
+            // Find overlap of the lines. If value is returned, they overlap.
+            var olap = Helper.findOverlapWithThreshold( x1,y1, x2,y2, x3,y3, x4,y4 );
+            if( olap ){
+                olap.overlap = true;
+                return olap;
+            }
+            // Just parallel.
+            return null; 
 		}
-        // Find coefficients of both lines.
-		var ua = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3))/denom;
-		var ub = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3))/denom;
+
+        // Lines are intersecting. Find the coefficients, dividing by denominator.
+		var ua = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3)) / denom;
+		var ub = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3)) / denom;
 
         // Check if intersection is within seg1 and seg2
         var onSeg1 = ua >= 0 && ua <= 1; 
@@ -437,9 +483,86 @@ class Helper{
 			x: x1 + ua*(x2 - x1),
 			y: y1 + ua*(y2 - y1),
 			"seg1": onSeg1,
-            "seg2": onSeg2
+            "seg2": onSeg2,
+            overlap: false
         };
 	}
+
+    static findOverlapWithThreshold( x1,y1, x2,y2, x3,y3, x4,y4, threshold ){
+        // Check if collinear.
+        if( Helper.getTriangleArea( x1,y1, x2,y2, x3,y3 ) == 0 ){
+            // Lines are collinear. Now ensure that x1 < x2 < x3 < x4, for easier computing.
+            var compareY = (x1==x2); // If Xs are equal, compare Ys.
+            var compareX = !compareY;
+
+            if(compareY ? y1 > y2 : x1 > x2){
+                tx = x1; ty = y1;
+                x1 = x2; y1 = y2;
+                x2 = tx; y2 = ty;
+            }
+            if(compareY ? y3 > y4 : x3 > x4){
+                tx = x3; ty = y3;
+                x3 = x4; y3 = y4;
+                x4 = tx; y4 = ty;
+            } 
+
+            // Check if the lines don't have shared sections
+            if(compareX ? (x2 < x3 || x4 < x1) : (y2 < y3 || y4 < y1)){
+                return null;
+            }
+            // Now it means they have overlaps.
+
+            // Check if second segment is inside the first
+            if(compareX ? (x1 <= x3 && x4 <= x2) : (y1 <= y3 && y4 <= y2)){
+                return { 
+                    startX: x3, startY: y3,
+                    endX: x4, endY: y4,
+                    inside: 2 // Second is inside
+                };
+            }
+
+            // Check if first segment is inside the second
+            if(compareX ? (x3 < x1 && x2 < x4) : (y3 < y1 && y2 < y4)){
+                return { 
+                    startX: x1, startY: y1,
+                    endX: x2, endY: y2,
+                    inside: 1 // First is inside
+                };
+            }
+
+            // Now, the elements are not inside each other.
+            // Check if the first segment is upper than the second
+            if(compareX ? (x1 < x3) : (y1 < y3)){
+                return { 
+                    startX: x3, startY: y3,
+                    endX: x2, endY: y2,
+                    inside: 0,
+                    wholeLine:{
+                        "x1": x1, "y1": y1,
+                        "x2": x4, "y2": y4
+                    }
+                };
+            }
+
+            // Last case: if(compareX ? (x3 < x1) : (y3 < y1)){
+            return { 
+                startX: x1, startY: y1,
+                endX: x4, endY: y4,
+                inside: 0,
+                wholeLine:{
+                    "x1": x3, "y1": y3,
+                    "x2": x2, "y2": y2
+                }
+            };
+        }
+        // Not collinear.
+        return null;
+    }
+
+    static getTriangleArea( x1,y1, x2,y2, x3,y3 ){
+        // Use the "Shoelace Formula" to find an area of triangle.
+        return ( x1*y2 + x2*y3 + x3*y1 - x1*y3 - x2*y1 - x3*y2 ) / 2
+    }
 
     static getPointDistanceFromLine( point, line ){
         var x1=line.x1, y1=line.y1;
@@ -447,7 +570,8 @@ class Helper{
         var x =point.x, y =point.y;
 
         // Use the "Shoelace Formula" to find an area of triangle.
-        var area = 0.5 * Math.abs( (x1 - x2)*(y - y1) - (x1 - x)*(y2 - y1) );
+        //var area = 0.5 * Math.abs( (x1 - x2)*(y - y1) - (x1 - x)*(y2 - y1) );
+        var area = Helper.getTriangleArea( x1,y1, x2,y2, x,y );
 
         // Now get the length of the base line.
         var AB = Math.sqrt( (x2-x1)*(x2-x1) + (y2-y1)*(y2-y1) );
@@ -534,8 +658,8 @@ function urlToFileData(url, callback) {
 }
 
 //var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
-//var DefaultMazePath = 'maze_1.svg';
-var DefaultMazePath = 'testMaze.svg';
+var DefaultMazePath = 'maze_1.svg';
+//var DefaultMazePath = 'testMaze.svg';
 
 $( document ).ready(() => {
     console.log( "Ready!" );
