@@ -789,20 +789,20 @@ function urlToFileData(url, callback) {
 }
 
 //var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
-var DefaultMazePath = 'maze_1.svg';
+//var DefaultMazePath = './maze_1.svg';
 //var DefaultMazePath = 'testMaze.svg';
 
 $( document ).ready(() => {
     DEBUG && console.log( "Ready!" );
-    urlToFileData( DefaultMazePath, file => { loadMazeFromFile( file, '#mazeinfo' ); } );
-    //loadMazeDocument( getTestDocument(), '#renderdiv' );
+    //urlToFileData( DefaultMazePath, file => { loadMazeFromFile( file, '#mazeinfo' ); } );
+    //loadMazeDocument( $('#defsvg')[0].contentDocument, '#renderdiv' );
+
+    var ddd = $('#defsvg')[0];
+    $('#defsvg').on("load", () => {
+        var svgdoc = ddd.contentDocument;
+        console.log("SVGDocument loaded: "+svgdoc);
+
+        loadMazeDocument( svgdoc, '#renderdiv' );
+    });
 });
-
-/** 
- * Get a test SVG document with specifically alligned lines, for testing.
- */
-function getTestDocument(){
-    var doc = null;
-}
-
 
