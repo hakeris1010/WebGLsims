@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://threejs.org/build/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/TrackballControls.js"></script>
+    <script src="https://threejs.org/examples/js/libs/stats.min.js"></script>
+    <script src="https://threejs.org/examples/js/geometries/ConvexGeometry.js"></script>
+    <script src="https://threejs.org/examples/js/QuickHull.js"></script>
+
+    <script src="texturedconvex.js"></script>
+    
+    <style>
+        body {
+            margin: 0px;
+            padding: 0px;
+        }
+    </style>
+  </head>
+
+  <body>
+    <input type="file" id="file" name="file" accept="image" onchange="loadTexture(this.files[0])"></input>
+    <br>
+    <div id="renderdiv" width="600" height="600"></div>
+    <br>
+    <div id="texture">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Chess_Board.svg/1024px-Chess_Board.svg.png" style="display:none"></img>
+    </div>
+
+    <script src="convexscene.js"></script>
+    <script>
+        function loadTexture( file ){
+            //$('#texture').add
+        }
+
+        $(document).ready( () => {
+            drawConvexScene( $('#renderdiv') );
+        } );
+    </script>
+    <!--embed src="maze_1.svg" type="image/svg+xml" style="display:none" id="defaultsvg"/-->
+  </body>
+</html>      
+
