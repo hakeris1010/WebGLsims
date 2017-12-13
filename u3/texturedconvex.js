@@ -5,16 +5,16 @@ static getDefault( key ){
     case "image" : return "https://www.wpclipart.com/recreation/games/chess/chessboard.png";
     case "vertexCount" : return 1000;
     case "material" : 
-        return new THREE.MeshPhongMaterial( { 
+        return new THREE.MeshLambertMaterial( { 
             color: 0xffffff, 
             side: THREE.DoubleSide 
         } );
     case "shapeParams" : 
         var r = {
             type: "cone",
-            radius: 10,
-            height: 30,
-            size: 30
+            radius: 50,
+            height: 100,
+            size: 200
         };
         // Cone equation.
         r.equation = ( x, y, z ) => {
@@ -48,11 +48,10 @@ constructor( params ){
 
     // Generate convex points.
     var vertexes = [];
-    var uvs = [];
 
     // Points are generated in range [ -size, size ].
     // (Reminder: Math.random() generates a number in range [0, 1]).
-    for(var i = 0; i < this.params.vertexCount; i++){
+    for(var i = 0; i < this.props.vertexCount; i++){
         var x = (Math.random() - 0.5) * 2*sp.size;
         var y = (Math.random() - 0.5) * 2*sp.size;
         var z = (Math.random() - 0.5) * 2*sp.size;
@@ -65,13 +64,46 @@ constructor( params ){
     // Create a ConvexGeometry.
     this.geometry = new THREE.ConvexGeometry( vertexes );
 
-    // Create a texture from image.
-    if(props.image)
-        this.setTextureFromImage( props.image );
+    // Loop through the faces of the geometry, and compute UV coords for each face.
+	//this.assignUVs();
+
+    // Load a texture from image, and apply to the material.
+    if(this.props.image)
+        this.setTextureFromImage( this.props.image );
+}
+
+// Loop through the faces of the geometry, and compute UV coords for each face.
+assignUVs() {
+	var geometry = this.geometry;
+    geometry.faceVertexUvs[0] = [];
+
+    geometry.faces.forEach(function(face) {
+
+        var components = ['x', 'y', 'z'].sort(function(a, b) {
+            return Math.abs(face.normal[a]) > Math.abs(face.normal[b]);
+        });
+
+        var v1 = geometry.vertices[face.a];
+        var v2 = geometry.vertices[face.b];
+        var v3 = geometry.vertices[face.c];
+
+        geometry.faceVertexUvs[0].push([
+            new THREE.Vector2(v1[components[0]], v1[components[1]]),
+            new THREE.Vector2(v2[components[0]], v2[components[1]]),
+            new THREE.Vector2(v3[components[0]], v3[components[1]])
+        ]);
+
+    });
+
+    geometry.uvsNeedUpdate = true;
 }
 
 setTextureFromImage( image ){
+    // Create a loader and load a texture.
+    var texture = new THREE.TextureLoader().load( image );
 
+	// Apply this texture to current material.
+	this.props.material.map = texture; 
 }
 
 applyTexture(){
@@ -79,7 +111,7 @@ applyTexture(){
 }
 
 getMesh(){
-    return new THREE.Mesh( this.geometry, this.material );
+    return new THREE.Mesh( this.geometry, this.props.material );
 }
 
 }

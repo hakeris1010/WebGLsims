@@ -48,15 +48,17 @@ addBasicSceneElements(){
     
 
     // TODO::::
-    var texConv = new TexturedConvex( );
- 
+    var texConv = new TexturedConvex( {} ).getMesh();
+    texConv.receiveShadow = true;
+    
+    this.scene.add( texConv );
 
     // Add ambient and hemispheric light sources.
     this.scene.add( new THREE.AmbientLight( 0x404040 ) );
     //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
 
     // Add the Point Light, and mark it as a shadow caster
-    var pointLight = new THREE.PointLight(0xffffff, 0.5);
+    var pointLight = new THREE.PointLight(0xffffff, 1.0);
     pointLight.castShadow = true;
 
     pointLight.position.x = this.props.width/2;
