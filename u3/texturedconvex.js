@@ -29,11 +29,12 @@ static getDefault( key ){
     case "image" : return "https://www.wpclipart.com/recreation/games/chess/chessboard.png";
     case "vertexCount" : return 50000;
     case "material" : 
-        return new THREE.MeshLambertMaterial( { 
-            color: 0xffffff, 
+        return new THREE.MeshPhongMaterial( { 
             side: THREE.DoubleSide,
+            color: 0x999999,
             wireframe: false
-        } );
+        } );     
+        
     case "shapeParams" : 
         // Default convex shape - cone.
         var r = {
@@ -87,13 +88,29 @@ constructor( params ){
             this.props[item] = TexturedConvex.getDefault( item );
     } ); 
 
+    // Generate convex points.
+    var vertices = this.generateVertices();
+
+    // Create a ConvexGeometry.
+    this.geometry = new THREE.ConvexGeometry( vertices );
+
+    // Loop through the faces of the geometry, and compute UV coords for each face.
+	this.assignUVs();
+
+    // Load a texture from image, and apply to the material.
+    if(this.props.image)
+        this.setTextureFromImage( this.props.image );
+    
+}
+
+// Generates the vertices for a shape, meeting the equation conditions.
+generateVertices() {
     var sp = this.props.shapeParams;
 
-    // Generate convex points.
     var vertexes = [];
     var factor = 1.05;
 
-    DEBUG && console.log("Generating convex points ("+this.props.vertexCount+").");
+    DEBUG && console.log("[Convex]: Generating convex points ("+this.props.vertexCount+").");
 
     for(var i = 0; i < this.props.vertexCount; i++){
         var x = (Math.random() - 0.5) * sp.boundingBox.x * factor;
@@ -105,19 +122,8 @@ constructor( params ){
             vertexes.push( new THREE.Vector3( x, y, z ) );
     }
 
-    DEBUG && console.log( "Generation ended. Final point count: "+vertexes.length );
-
-    // Create a ConvexGeometry.
-    this.geometry = new THREE.ConvexGeometry( vertexes );
-
-    // Loop through the faces of the geometry, and compute UV coords for each face.
-	//this.assignUVs();
-
-    // Load a texture from image, and apply to the material.
-    //if(this.props.image)
-    //    this.setTextureFromImage( this.props.image );
-    
-    DEBUG && console.log("Final Convex:\n Material: "+this.props.material);
+    DEBUG && console.log( "[Convex]: Generation ended. Final point count: "+vertexes.length );
+    return vertexes;
 }
 
 // Loop through the faces of the geometry, and compute UV coords for each face.
@@ -150,20 +156,36 @@ assignUVs() {
     geometry.uvsNeedUpdate = true;
 }
 
+// Create a loader and load a texture from URL.
+// And apply this texture to current material.
 setTextureFromImage( image ){
-    // Create a loader and load a texture.
-    var texture = new THREE.TextureLoader().load( image );
+    DEBUG && console.log("[Convex]: Loading a texture: \""+image+"\"");
 
-	// Apply this texture to current material.
+    var texture = new THREE.TextureLoader().load( image );
 	this.props.material.map = texture; 
 }
 
-applyTexture(){
-    
+getMesh(){
+    DEBUG && console.log("[Convex]: Making a Mesh...");
+
+    return new THREE.Mesh( this.geometry, this.props.material );
+
+    //return this.testMesh();
 }
 
-getMesh(){
-    return new THREE.Mesh( this.geometry, this.props.material );
+testMesh(){
+    var texture = new THREE.TextureLoader().load( 'kawaii.jpg' );
+
+    var geometry = new THREE.BoxBufferGeometry( 200, 200, 200, 40, 40, 40 );
+    var material = new THREE.MeshPhongMaterial( { 
+        side: THREE.DoubleSide,
+        color: 0x999999,
+        wireframe: false
+    } ); 
+
+    material.map = texture;
+
+    return new THREE.Mesh( geometry, material );
 }
 
 }

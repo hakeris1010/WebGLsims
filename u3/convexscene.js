@@ -23,48 +23,23 @@ constructor( rendiv ){
 
 addBasicSceneElements(){
     var DEBUG = true;
-
-    // Create the ground plane
-    var planeGeometry = new THREE.PlaneGeometry( 
-        this.props.width, this.props.height, 
-        this.props.width / 4, this.props.height / 4 
-    );
-    var planeMaterial = new THREE.MeshLambertMaterial({
-        color: 0xFFFFFF,
-        side: THREE.DoubleSide
-    });
-    var plane = new THREE.Mesh(planeGeometry,planeMaterial);
-
-    // Rotate and position the plane
-    plane.position.x = 0;
-    plane.position.y = -0.35;
-    plane.position.z = 0;
-    plane.rotation.x = Math.PI/2;
-
-    plane.receiveShadow = true;
-
-    // Add the plane to the scene
-    //this.scene.add(plane);
     
-
-    // TODO::::
-    var texConv = new TexturedConvex( {} ).getMesh();
+    var texConv = new TexturedConvex( {
+        image: "kawaii.jpg"
+    } ).getMesh();
     texConv.receiveShadow = true;
     
     this.scene.add( texConv );
-
-
 
     // Add ambient and hemispheric light sources.
     this.scene.add( new THREE.AmbientLight( 0x404040 ) );
 
     // Add the Point Light, and mark it as a shadow caster
-    var pointLight = new THREE.PointLight(0xffffff, 0.4);
+    var pointLight = new THREE.PointLight(0xffffff, 1.0);
     pointLight.castShadow = true;
 
     pointLight.position.x = 0;
-    pointLight.position.y = ((planeGeometry.parameters.width + 
-                              planeGeometry.parameters.height)/2) / 3;
+    pointLight.position.y = ( (this.props.width + this.props.height)/2 )
     pointLight.position.z = 0;
 
     DEBUG && console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
@@ -172,8 +147,6 @@ onWindowResize() {
  * Renders the scene.
  */ 
 render() {
-    //if(this.stop) return;
-
     this.renderer.render(this.scene, this.camera);
     this.stats.update();
 }
@@ -183,15 +156,15 @@ render() {
  *  Called from outside the renderer to start the loop.
  */ 
 animate(){
-    //if(this.stop) return;
-
-    //stats.begin();
-    // monitored code goes here
-    //stats.end();
-
     // Use a binder to bind this function to this object.
-    this.controls.update();
     this.animationID = requestAnimationFrame( this.animate.bind(this) );
+
+    this.controls.update();
+
+    this.scene.rotation.x += 0.001;
+    this.scene.rotation.y += 0.002;
+    
+    this.render();
 }
 
 /** 
@@ -218,6 +191,69 @@ function drawConvexScene( rendiv ){
     console.log("Starting drawing!");
     conScene.render();
     conScene.animate();
+
+    //testScene( rendiv );
+}
+
+// Testing ThreeJS capabilities.
+function testScene( rendiv ){
+    console.log( "Testing Rendiv!");
+
+    var camera, scene, renderer;
+    var mesh;
+
+    init();
+    animate();
+
+    function init() {
+        console.log("init");
+
+        camera = new THREE.PerspectiveCamera( 70, 
+            window.innerWidth / window.innerHeight, 1, 1000 );
+
+        camera.position.z = 400;
+
+        scene = new THREE.Scene();
+
+        var texture = new THREE.TextureLoader().load( 'kawaii.jpg' );
+            //"https://s1.zerochan.net/Izumi.Sagiri.600.2092911.jpg" );
+
+        var geometry = new THREE.BoxBufferGeometry( 200, 200, 200, 40, 40, 40 );
+        var material = new THREE.MeshLambertMaterial( { 
+            side: THREE.DoubleSide,
+            map: texture,
+            wireframe: true
+        } );
+
+        mesh = new THREE.Mesh( geometry, material );
+        scene.add( mesh );
+
+        scene.add( new THREE.AmbientLight( 0x404040 ) );
+
+        var pointLight = new THREE.PointLight(0xffffff, 1.0);
+        pointLight.castShadow = true;
+
+        pointLight.position.x = 0;
+        pointLight.position.y = 0; 
+        pointLight.position.z = 0;
+
+        scene.add( pointLight ); 
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+
+        rendiv.append( renderer.domElement );
+    }
+
+    function animate() {
+        requestAnimationFrame( animate );
+
+        mesh.rotation.x += 0.005;
+        mesh.rotation.y += 0.01;
+
+        renderer.render( scene, camera );
+    }
 }
 
 
