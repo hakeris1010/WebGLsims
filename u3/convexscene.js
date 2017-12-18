@@ -44,7 +44,7 @@ addBasicSceneElements(){
     plane.receiveShadow = true;
 
     // Add the plane to the scene
-    this.scene.add(plane);
+    //this.scene.add(plane);
     
 
     // TODO::::

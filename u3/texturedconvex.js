@@ -24,25 +24,52 @@ class TexturedConvex
 {
 static getDefault( key ){
     switch(key){
+    //highlightPoints: https://threejs.org/examples/webgl_geometry_convex.html
+    case "highlightPoints" : return false;
     case "image" : return "https://www.wpclipart.com/recreation/games/chess/chessboard.png";
-    case "vertexCount" : return 10000;
+    case "vertexCount" : return 50000;
     case "material" : 
         return new THREE.MeshLambertMaterial( { 
             color: 0xffffff, 
-            side: THREE.DoubleSide 
+            side: THREE.DoubleSide,
+            wireframe: false
         } );
     case "shapeParams" : 
+        // Default convex shape - cone.
         var r = {
             type: "cone",
             radius: 50,
             height: 100,
-            size: 100
         };
+
+        // Bounding box, for efficient point generation.
+        r.boundingBox = {
+            x: r.radius*2, 
+            y: r.height,
+            z: r.radius*2
+        };
+
         // Cone equation.
         r.equation = ( x, y, z ) => {
             return ( x*x + z*z <= Math.pow(r.radius/r.height, 2) * Math.pow(y-r.height/2, 2) ) &&
                    ( y <= r.height/2 ) && ( y >= -1*r.height/2 ); 
         };
+
+        /** Gets the UV coordinates from vertex 3D coordinates.
+         *  We must project the 3D point to a 2D plane with dimensions [0,1]x[0x1].
+         *  We know that cone has a fixed height, and x rotates around by a circle.
+         *  So:
+         *  - It's known that y = height  =>  v = (y + height/2) / height.
+         *  - We compute U by using the angle of vector (x,z). 
+         *    atan2(x,z) = alpha  =>  u = alpha/pi.
+         */ 
+        r.getUV = ( x, y, z ) => {
+            return {
+                v: (y + r.height/2) / r.height ,
+                u: (Math.atan2( z, x ) + Math.PI/2) / Math.PI
+            };
+        };
+
         return r;
     }
     return 0;
@@ -64,13 +91,14 @@ constructor( params ){
 
     // Generate convex points.
     var vertexes = [];
+    var factor = 1.05;
 
     DEBUG && console.log("Generating convex points ("+this.props.vertexCount+").");
 
     for(var i = 0; i < this.props.vertexCount; i++){
-        var x = (Math.random() - 0.5) * sp.size;
-        var y = (Math.random() - 0.5) * sp.size;
-        var z = (Math.random() - 0.5) * sp.size;
+        var x = (Math.random() - 0.5) * sp.boundingBox.x * factor;
+        var y = (Math.random() - 0.5) * sp.boundingBox.y * factor;
+        var z = (Math.random() - 0.5) * sp.boundingBox.z * factor;
 
         // Check if points comply to shape equation.
         if( sp.equation( x, y, z ) )
@@ -94,23 +122,27 @@ constructor( params ){
 
 // Loop through the faces of the geometry, and compute UV coords for each face.
 assignUVs() {
+    var sp = this.props.shapeParams;
 	var geometry = this.geometry;
+
     geometry.faceVertexUvs[0] = [];
 
-    geometry.faces.forEach(function(face) {
-
-        var components = ['x', 'y', 'z'].sort(function(a, b) {
-            return Math.abs(face.normal[a]) > Math.abs(face.normal[b]);
-        });
-
+    geometry.faces.forEach( (face) => {
+        // Get vertices of this face. a, b, and c are indexes 
+        // of the vertices of this face, in a 'vertices' buffer.
         var v1 = geometry.vertices[face.a];
         var v2 = geometry.vertices[face.b];
         var v3 = geometry.vertices[face.c];
 
+        // Get UV coords using the shape's provided function.
+        var uv1 = sp.getUV( v1.x, v1.y, v1.z );
+        var uv2 = sp.getUV( v2.x, v2.y, v2.z );
+        var uv3 = sp.getUV( v3.x, v3.y, v3.z );
+
         geometry.faceVertexUvs[0].push([
-            new THREE.Vector2(v1[components[0]], v1[components[1]]),
-            new THREE.Vector2(v2[components[0]], v2[components[1]]),
-            new THREE.Vector2(v3[components[0]], v3[components[1]])
+            new THREE.Vector2( uv1.u, uv1.v ),
+            new THREE.Vector2( uv2.u, uv2.v ),
+            new THREE.Vector2( uv3.u, uv3.v )
         ]);
 
     });
