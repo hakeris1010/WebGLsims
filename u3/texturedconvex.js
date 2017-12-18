@@ -1,9 +1,31 @@
+/**
+ * Convex shape generator.
+ * - Uses equations to generate vertices which form the final convex shape.
+ * - Uses dynamic UV mapping (by the same equations) to map UVs to the shape.
+ *
+ * Works by using THREE.ConvexGeometry to create a hull over randomly generated points.
+ *
+ * The program generates random points and check if they met the conditions,
+ * specified in the shape-defining equation.
+ *
+ * (Reminder: Math.random() generates a number in range [0, 1)).
+ * After subtracting 0.5, we get random values in range [-0.5, 0.5).
+ *
+ * In order to get the values in range close to the size of convex
+ * (size is the bounding box measurements), we must multiply them by size * factor
+ * Then we get coords between [-0.5*size*factor, 0.5*size*factor).
+ *
+ * We use a specific factor to get coordinates a bit further from edges.
+ */ 
+
+var DEBUG = true;
+
 class TexturedConvex 
 {
 static getDefault( key ){
     switch(key){
     case "image" : return "https://www.wpclipart.com/recreation/games/chess/chessboard.png";
-    case "vertexCount" : return 1000;
+    case "vertexCount" : return 10000;
     case "material" : 
         return new THREE.MeshLambertMaterial( { 
             color: 0xffffff, 
@@ -14,7 +36,7 @@ static getDefault( key ){
             type: "cone",
             radius: 50,
             height: 100,
-            size: 200
+            size: 100
         };
         // Cone equation.
         r.equation = ( x, y, z ) => {
@@ -29,12 +51,6 @@ static getDefault( key ){
 constructor( params ){
     var propertiesToCheck = [ "image", "material", "vertexCount", "shapeParams" ];
     this.props = {};
-    /*this.params = { 
-        image:       params ? params.image       : 0 || TexturedConvex.getDefault( "image" ),
-        material:    params ? params.material    : 0 || TexturedConvex.getDefault( "material" ),
-        vertexCount: params ? params.vertexCount : 0 || TexturedConvex.getDefault( "vertexCount" ),
-        shapeParams: params ? params.shapeParams : 0 || TexturedConvex.getDefault( "shapeParams" )
-    };*/
 
     // Add Properties
     propertiesToCheck.forEach( item => {
@@ -49,17 +65,19 @@ constructor( params ){
     // Generate convex points.
     var vertexes = [];
 
-    // Points are generated in range [ -size, size ].
-    // (Reminder: Math.random() generates a number in range [0, 1]).
+    DEBUG && console.log("Generating convex points ("+this.props.vertexCount+").");
+
     for(var i = 0; i < this.props.vertexCount; i++){
-        var x = (Math.random() - 0.5) * 2*sp.size;
-        var y = (Math.random() - 0.5) * 2*sp.size;
-        var z = (Math.random() - 0.5) * 2*sp.size;
+        var x = (Math.random() - 0.5) * sp.size;
+        var y = (Math.random() - 0.5) * sp.size;
+        var z = (Math.random() - 0.5) * sp.size;
 
         // Check if points comply to shape equation.
         if( sp.equation( x, y, z ) )
             vertexes.push( new THREE.Vector3( x, y, z ) );
     }
+
+    DEBUG && console.log( "Generation ended. Final point count: "+vertexes.length );
 
     // Create a ConvexGeometry.
     this.geometry = new THREE.ConvexGeometry( vertexes );
@@ -68,8 +86,10 @@ constructor( params ){
 	//this.assignUVs();
 
     // Load a texture from image, and apply to the material.
-    if(this.props.image)
-        this.setTextureFromImage( this.props.image );
+    //if(this.props.image)
+    //    this.setTextureFromImage( this.props.image );
+    
+    DEBUG && console.log("Final Convex:\n Material: "+this.props.material);
 }
 
 // Loop through the faces of the geometry, and compute UV coords for each face.

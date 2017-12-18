@@ -36,9 +36,9 @@ addBasicSceneElements(){
     var plane = new THREE.Mesh(planeGeometry,planeMaterial);
 
     // Rotate and position the plane
-    plane.position.x = 0 + this.props.width/2;
+    plane.position.x = 0;
     plane.position.y = -0.35;
-    plane.position.z = 0 + this.props.height/2;
+    plane.position.z = 0;
     plane.rotation.x = Math.PI/2;
 
     plane.receiveShadow = true;
@@ -53,17 +53,19 @@ addBasicSceneElements(){
     
     this.scene.add( texConv );
 
+
+
     // Add ambient and hemispheric light sources.
     this.scene.add( new THREE.AmbientLight( 0x404040 ) );
-    //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
 
     // Add the Point Light, and mark it as a shadow caster
-    var pointLight = new THREE.PointLight(0xffffff, 1.0);
+    var pointLight = new THREE.PointLight(0xffffff, 0.4);
     pointLight.castShadow = true;
 
-    pointLight.position.x = this.props.width/2;
-    pointLight.position.y = ((this.props.width + this.props.height)/2);
-    pointLight.position.z = this.props.height/2;
+    pointLight.position.x = 0;
+    pointLight.position.y = ((planeGeometry.parameters.width + 
+                              planeGeometry.parameters.height)/2) / 3;
+    pointLight.position.z = 0;
 
     DEBUG && console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
 
@@ -137,7 +139,7 @@ setupRendering( canvas ){
     this.renderer = new THREE.WebGLRenderer( { 
         antialias: true 
     } );
-    this.renderer.setClearColor( new THREE.Color(0x1A1A1A) );
+    this.renderer.setClearColor( new THREE.Color(0x999999) );
     this.renderer.setPixelRatio( window.devicePixelRatio );
     this.renderer.setSize( width, height );
 
@@ -159,7 +161,6 @@ setupRendering( canvas ){
 onWindowResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
-
     this.renderer.setSize( window.innerWidth, window.innerHeight );
 
     this.controls.handleResize();
@@ -204,10 +205,15 @@ destroy(){
 
 };
 
-// UI Part.
+/** Client part (website specific).
+ *  Construct a new Convex Scene, and render it.
+ */ 
+
+var conScene = null;
+
 function drawConvexScene( rendiv ){
     console.log("Constructing...");
-    var conScene = new ConvexScene( rendiv );
+    conScene = new ConvexScene( rendiv );
 
     console.log("Starting drawing!");
     conScene.render();
