@@ -69,9 +69,9 @@ setupRendering( canvas ){
         0.1, 
         (width + height / 2) * 4
     );
-    this.camera.position.x = scene.position.x + props.width*1.1;
-    this.camera.position.z = scene.position.z + props.height*1.1;
-    this.camera.position.y = scene.position.y + ((props.width + props.height)/2) *1.5;
+    this.camera.position.x = scene.position.x + props.width;
+    this.camera.position.z = scene.position.z + props.height;
+    this.camera.position.y = scene.position.y + ((props.width + props.height)/2);
 
     var cameraTarget = new THREE.Vector3( 
         scene.position.x,
@@ -161,8 +161,8 @@ animate(){
 
     this.controls.update();
 
-    this.scene.rotation.x += 0.001;
-    this.scene.rotation.y += 0.002;
+    this.scene.rotation.x += 0.0008;
+    this.scene.rotation.y += 0.0015;
     
     this.render();
 }
@@ -189,7 +189,6 @@ function drawConvexScene( rendiv ){
     conScene = new ConvexScene( rendiv );
 
     console.log("Starting drawing!");
-    conScene.render();
     conScene.animate();
 
     //testScene( rendiv );

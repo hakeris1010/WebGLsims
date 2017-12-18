@@ -39,8 +39,8 @@ static getDefault( key ){
         // Default convex shape - cone.
         var r = {
             type: "cone",
-            radius: 50,
-            height: 100,
+            radius: 180,
+            height: 400,
         };
 
         // Bounding box, for efficient point generation.
@@ -67,8 +67,10 @@ static getDefault( key ){
         r.getUV = ( x, y, z ) => {
             return {
                 v: (y + r.height/2) / r.height ,
-                u: (Math.atan2( z, x ) + Math.PI/2) / Math.PI
-            };
+                u: ( z > 0 ? (Math.atan2( z, x ) / (2 * Math.PI)) :
+                     ( ((Math.PI + Math.atan2( z, x )) + Math.PI ) / (2 * Math.PI) ) 
+                   ) 
+            };  
         };
 
         return r;
@@ -77,6 +79,19 @@ static getDefault( key ){
 }
 
 constructor( params ){
+    // Test Math.atan2.
+    console.log("Math.atan2(1,1) = "+Math.atan2(1,1));
+    console.log("Math.atan2(1,-1) = "+Math.atan2(1,-1));
+    console.log("Math.atan2(-1,-1) = "+Math.atan2(-1,-1));
+    console.log("Math.atan2(-1,1) = "+Math.atan2(-1,1));
+
+    console.log("Math.atan2(0,0) = "+Math.atan2(0,0));
+    console.log("Math.atan2(1,0) = "+Math.atan2(1,0));
+    console.log("Math.atan2(0,-1) = "+Math.atan2(0,-1));
+    console.log("Math.atan2(-1,-0) = "+Math.atan2(-1,-0));
+    console.log("Math.atan2(-0,1) = "+Math.atan2(-0,1));
+
+
     var propertiesToCheck = [ "image", "material", "vertexCount", "shapeParams" ];
     this.props = {};
 
