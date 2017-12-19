@@ -79,19 +79,6 @@ static getDefault( key ){
 }
 
 constructor( params ){
-    // Test Math.atan2.
-    console.log("Math.atan2(1,1) = "+Math.atan2(1,1));
-    console.log("Math.atan2(1,-1) = "+Math.atan2(1,-1));
-    console.log("Math.atan2(-1,-1) = "+Math.atan2(-1,-1));
-    console.log("Math.atan2(-1,1) = "+Math.atan2(-1,1));
-
-    console.log("Math.atan2(0,0) = "+Math.atan2(0,0));
-    console.log("Math.atan2(1,0) = "+Math.atan2(1,0));
-    console.log("Math.atan2(0,-1) = "+Math.atan2(0,-1));
-    console.log("Math.atan2(-1,-0) = "+Math.atan2(-1,-0));
-    console.log("Math.atan2(-0,1) = "+Math.atan2(-0,1));
-
-
     var propertiesToCheck = [ "image", "material", "vertexCount", "shapeParams" ];
     this.props = {};
 

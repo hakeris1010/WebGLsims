@@ -6,14 +6,24 @@ class Helper{
 
 class ConvexScene{
 
-constructor( rendiv ){
+constructor( rendiv, params ){
     this.props = {
         div: rendiv,
         width:  parseInt( $(rendiv).attr( "width" ) )  || 300,
         height: parseInt( $(rendiv).attr( "height" ) ) || 300
     };
 
-    console.log("Props: \n width: "+this.props.width+" height: "+this.props.height+"\n");
+    var propertiesToCheck = [ "convexTexture" ];
+    propertiesToCheck.forEach( item => {
+        if( params ? typeof params[item] !== "undefined" : false ) 
+            this.props[item] = params[item];
+    } ); 
+
+    console.log("Props: \n"); // width: "+this.props.width+" height: "+this.props.height+"\n");
+    for( var prop in this.props ){
+        if( this.props.hasOwnProperty( prop ) )
+            console.log(" "+prop+": " + this.props[ prop ]);
+    }
 
     this.scene = new THREE.Scene();
 
@@ -27,6 +37,7 @@ addBasicSceneElements(){
     var texConv = new TexturedConvex( {
         image: "kawaii.jpg"
     } ).getMesh();
+
     texConv.receiveShadow = true;
     
     this.scene.add( texConv );
@@ -186,12 +197,36 @@ var conScene = null;
 
 function drawConvexScene( rendiv ){
     console.log("Constructing...");
-    conScene = new ConvexScene( rendiv );
+    conScene = new ConvexScene( rendiv, {
+        convexTextureRaw: getImagePixelData( $('#texture')[0] )
+    } );
 
     console.log("Starting drawing!");
     conScene.animate();
 
     //testScene( rendiv );
+}
+
+// Gets the image's data url from <img> tag.
+function getImagePixelData(img) {
+    // Create an empty canvas element
+    var canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    // Copy the image contents to the canvas
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+
+    var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return imgData;
+
+    /*var dataURL = canvas.toDataURL("image/png");
+
+    console.log("Got data url: "+dataURL);
+    return dataURL;
+    */
+    //return dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
 }
 
 // Testing ThreeJS capabilities.
@@ -253,6 +288,20 @@ function testScene( rendiv ){
 
         renderer.render( scene, camera );
     }
+}
+
+function testArcTan(){
+    // Test Math.atan2.
+    console.log("Math.atan2(1,1) = "+Math.atan2(1,1));
+    console.log("Math.atan2(1,-1) = "+Math.atan2(1,-1));
+    console.log("Math.atan2(-1,-1) = "+Math.atan2(-1,-1));
+    console.log("Math.atan2(-1,1) = "+Math.atan2(-1,1));
+
+    console.log("Math.atan2(0,0) = "+Math.atan2(0,0));
+    console.log("Math.atan2(1,0) = "+Math.atan2(1,0));
+    console.log("Math.atan2(0,-1) = "+Math.atan2(0,-1));
+    console.log("Math.atan2(-1,-0) = "+Math.atan2(-1,-0));
+    console.log("Math.atan2(-0,1) = "+Math.atan2(-0,1));
 }
 
 
