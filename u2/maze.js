@@ -21,7 +21,8 @@ class MazeLoader {
         // Maze's default properties.
         this.props = { 
             wallHeight: 15, wallWidth: 5, wallLengthExtend: 0, 
-            wallColor: "random", groundColor: 0x808080, useShadows: false
+            wallColor: "random", groundColor: 0x808080, useShadows: false,
+            mazeRotationSpeed: 0.001
         };
         this.baseSvgDocument = baseDoc;
 
@@ -84,24 +85,26 @@ class MazeLoader {
      * @param texURL - URL of the image file to load.
      * @return a ThreeJS texture object.
      */ 
-    loadTexture( texURL ){
+    loadTexture( texURL, callback ){
         if( !this.textureLoader ){
             this.textureLoader = new THREE.TextureLoader();
-            loader.setCrossOrigin( "anonymous" ); // To allow download from other servers
+            // To allow download from other servers, set CORS to anonymous. 
+            this.textureLoader.setCrossOrigin( "anonymous" ); 
         }
 
         console.log("[Maze:LoadTexture()]: Loading \""+texURL+"\"");
-        var texture = this.textureLoader.load( texURL, 
+        var ret = this.textureLoader.load( texURL, 
             tex => { 
                 console.log("[Maze:LoadTexture()]: Texture Loaded! ("+tex+")"); 
+                if( callback )
+                    callback( tex );
             }, 
             null, 
             a => { 
                 console.log("[Maze:LoadTexture()]: Error occured! ("+a.type+")"); 
             } 
         );
-
-        return texture;
+        return ret;
     }
 
     /** Loads all needed textures.
@@ -111,8 +114,10 @@ class MazeLoader {
         this.textures = {};
 
         // Set whole maze texture.
-        if(this.props.mazeTextureURL)
-            this.textures.maze = this.loadTexture( this.props.mazeTexture );
+        if(this.props.mazeTextureURL){
+            this.textures.maze = this.loadTexture( this.props.mazeTextureURL, (tex) => { } );
+            this.textures.ground = this.textures.maze; 
+        }
     }
 
     /** Creates all needed ThreeJS materials.
@@ -121,7 +126,9 @@ class MazeLoader {
     setupMaterials(){
         this.materials = {};
 
+        // ================================== //
         // Set maze wall material. 
+        //
         var mazeWall = new THREE.MeshLambertMaterial({
             side: THREE.DoubleSide
         });
@@ -139,12 +146,35 @@ class MazeLoader {
 
         console.log("Setting mazeWall material ("+mazeWall.constructor.name+")");
         this.materials.mazeWall = mazeWall;
+
+        // ================================== //
+        // Set the ground plane material. 
+        //
+        var groundPlane = new THREE.MeshLambertMaterial({
+            side: THREE.DoubleSide
+        });
+
+        if( this.textures.maze )
+            groundPlane.map = this.textures.ground;
+        else
+            groundPlane.color = new THREE.Color( this.props.groundColor );
+
+        console.log("Setting groundPlane material ("+groundPlane.constructor.name+")");
+        this.materials.groundPlane = groundPlane;
     }
 
     /** 
      * Creates a scene containing all maze elements.
      */ 
     createScene(){
+        // At first, set the start point for the maze walls.
+        // This is done because the scene must be centered at (0,0,0) of the world space.
+        this.props.mazeStart = {
+            x: -1*this.props.width/2,
+            y: 0,
+            z: -1*this.props.height/2
+        };
+
         // Load all needed textures.
         this.setupTextures();
 
@@ -175,22 +205,22 @@ class MazeLoader {
      */
     addBasicSceneElements(){
         var DEBUG = true;
+        var props = this.props;
 
         // Create the ground plane
         var planeGeometry = new THREE.PlaneGeometry( 
             this.props.width, this.props.height, 
             this.props.width / 4, this.props.height / 4 
         );
-        var planeMaterial = new THREE.MeshLambertMaterial({
-            color: this.props.groundColor,
-            side: THREE.DoubleSide
-        });
+        var planeMaterial = this.materials.groundPlane;
+
         var plane = new THREE.Mesh(planeGeometry,planeMaterial);
 
         // Rotate and position the plane
-        plane.position.x = 0 + this.props.width/2;
-        plane.position.y = -0.35;
-        plane.position.z = 0 + this.props.height/2;
+        plane.position.x = this.props.mazeStart.x + this.props.width/2;
+        plane.position.y = this.props.mazeStart.y - 0.35;
+        plane.position.z = this.props.mazeStart.z + this.props.height/2;
+
         plane.rotation.x = Math.PI/2;
 
         plane.receiveShadow = true;
@@ -205,9 +235,9 @@ class MazeLoader {
         var pointLight = new THREE.PointLight(0xffffff, 1);
         pointLight.castShadow = true;
 
-        pointLight.position.x = this.props.width/2;
-        pointLight.position.y = ((this.props.width + this.props.height)/2);
-        pointLight.position.z = this.props.height/2;
+        pointLight.position.x = props.mazeStart.x + props.width/2;
+        pointLight.position.y = props.mazeStart.y + ((this.props.width + this.props.height)/2);
+        pointLight.position.z = props.mazeStart.z + this.props.height/2;
 
         DEBUG && console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
 
@@ -463,28 +493,63 @@ class MazeLoader {
         cube.castShadow = true;
         cube.receiveShadow = true;
 
+        // Set cube's "Model Matrix" (rotation, scaling, and position):
+
         // Position the cube. Because Three.JS coordinates are centered, we must
         // set position to line's center.
-        cube.position.x = poss.center.x;
-        cube.position.y = poss.center.y;
-        cube.position.z = poss.center.z;
+        cube.position.x = this.props.mazeStart.x + poss.center.x;
+        cube.position.y = this.props.mazeStart.y + poss.center.y;
+        cube.position.z = this.props.mazeStart.z + poss.center.z;
 
         // Rotate the cube around the Y (up) axis counter-clockwise.
         cube.rotation.y = poss.rotation;
 
-        /*DEBUG && console.log("Line length: "+poss.length+
-                    "\n Rotation vec: "+Helper.vecToString(cube.rotation)+
-                    "\n Position vec: "+Helper.vecToString(cube.position) );
-        */
+        // Create the world matrix of this object, applying the 
+        // position, rotation and scaling which we've set before.
+        //
+        // Apply this matrix to the geometry too, because updateMatrix 
+        // only updates the Mesh's matrix, but nothing is done on geometry.
+        // This could lead to errors when rendering.
+        //
+        cube.updateMatrix();
+        cube.geometry.applyMatrix( cube.matrix );
+
+        // However, we must reset the pos, rot, and scaling of the object,
+        // to prevent double transformation from occuring when rendering.
+        cube.position.set( 0, 0, 0 );
+        cube.rotation.set( 0, 0, 0 );
+        cube.scale.set( 1, 1, 1 );
+
+        // After this, we can update matrix again, to clear the 
+        // "position modified" flag. This is not necessary though.
+        cube.updateMatrix();    
+
+        // When cube's Model matrix has been set, map UV coordinates, 
+        // if texture has been assigned.
+        if( cube.material.map ){
+            this.setUVCoords( cube );
+        }
+
         return cube;
     }
 
     /**
      * Sets UV coordinates, if texture usage is set.
      * - Maps UVs to every vertex so that whole maze has the contiguous texture.
+     *
+     * To map UVs, we need to get every vertex's coords in World space. 
+     *
+     * - To do this, we apply this mesh's Model Matrix (which translates 
+     *   Model Coordinates to World Coordinates) to every vertex, to get 
+     *   the coordinates of the vertex after the rotation, scaling, and 
+     *   moving have been done (the World Coordinates).
+     *
      * @param mesh - fully constructed mesh.
      */ 
-    getUVCoords( mesh ){
+    setUVCoords( mesh ){
+        var props = this.props;
+        var geometry = mesh.geometry;
+
         var scale = (props.mazeTextureScale ? props.mazeTextureScale : 1.0 );
 
         // Map UV coordinates of the wall.
@@ -493,29 +558,34 @@ class MazeLoader {
         // UV Mapper Function. We map by using X and Z coordinates.
         var getUVs = (x, y, z) => {
             return {
-                u: ((poss.center.x + x) / props.width) * scale , 
-                v: ((poss.center.z + z) / props.height) * scale
+                u: (x - props.mazeStart.x) / props.width,  //* scale , 
+                v: (z - props.mazeStart.z) / props.height // * scale
             };
         };
 
         geometry.faces.forEach( (face) => {
             // Get vertices of this face. a, b, and c are indexes 
-            // of the vertices of this face, in a 'vertices' buffer.
-            var v1 = geometry.vertices[face.a];
-            var v2 = geometry.vertices[face.b];
-            var v3 = geometry.vertices[face.c];
+            // of the vertices of this face, in a 'vertices' buffer,
+            // 
+            // OLD - and apply World Matrix (Model Matrix) to each.
+            //
+            // Edit - we actually don't need to apply the matrix because we already did
+            // in the setup of the mesh before.
+
+            var v1 = geometry.vertices[face.a]; //.applyMatrix4( mesh.matrixWorld );
+            var v2 = geometry.vertices[face.b]; //.applyMatrix4( mesh.matrixWorld );
+            var v3 = geometry.vertices[face.c]; //.applyMatrix4( mesh.matrixWorld );
 
             // Map UVs by using x and z axes on a mazespace.
-            var uv1 = getUVs( v1 );
-            var uv2 = getUVs( v2 );
-            var uv3 = getUVs( v3 );
+            var uv1 = getUVs( v1.x, v1.y, v1.z );
+            var uv2 = getUVs( v2.x, v2.y, v2.z );
+            var uv3 = getUVs( v3.x, v3.y, v3.z );
 
             geometry.faceVertexUvs[0].push([
                 new THREE.Vector2( uv1.u, uv1.v ),
                 new THREE.Vector2( uv2.u, uv2.v ),
                 new THREE.Vector2( uv3.u, uv3.v )
             ]);
-
         });
 
         geometry.uvsNeedUpdate = true;
@@ -546,14 +616,14 @@ class MazeLoader {
             0.1, 
             7000
         );
-        this.camera.position.x = scene.position.x + props.width*1.1;
-        this.camera.position.z = scene.position.z + props.height*1.1;
-        this.camera.position.y = scene.position.y + ((props.width + props.height)/2) *1.5;
+        this.camera.position.x = scene.position.x + props.width * 0.9;
+        this.camera.position.z = scene.position.z + props.height * 0.9;
+        this.camera.position.y = scene.position.y + ((props.width + props.height)/2) * 1.5;
 
         var cameraTarget = new THREE.Vector3( 
-            scene.position.x + props.width/2,
-            scene.position.y,
-            scene.position.z + props.height/2
+            props.mazeStart.x + props.width/2,
+            props.mazeStart.y,
+            props.mazeStart.z + props.height/2
         ); 
 
         // Set camera controls.
@@ -638,12 +708,19 @@ class MazeLoader {
     animate(){
         //if(this.stop) return;
 
-        //stats.begin();
         // monitored code goes here
-        //stats.end();
+        //this.stats.begin();
 
-        // Use a binder to bind this function to this object.
+        if( this.props.mazeRotationSpeed ){
+            this.scene.rotation.y += this.props.mazeRotationSpeed;
+
+            this.render();
+        }
+
         this.controls.update();
+        //this.stats.end();
+
+        // Use a binder to bind this function to 'this' object.
         this.animationID = requestAnimationFrame( this.animate.bind(this) );
     }
 
