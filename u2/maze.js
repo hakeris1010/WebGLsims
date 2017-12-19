@@ -28,9 +28,10 @@ class MazeLoader {
         // TODO: Implement all these properties.
         var propertiesToCheck = [
             "wallHeight", "wallWidth", "wallLengthExtend", 
-            "wallColor", "groundColor", "useShadows", "lightIntensity", "lightHeight",
-            "enableCameraControls", "mazeRotationSpeed", "centerFigure", 
-            "shortestPathTracker", "trackerSpeed", "trackerLight"
+            "wallColor", "groundColor", "mazeTexture", "mazeTextureScale",
+            "useShadows", "lightIntensity", "lightPosition", "lightOnCamera",
+            "enableCameraControls", "mazeRotationSpeed", "bouncingBall",
+            "centerFigure", "shortestPathTracker", "trackerSpeed", "trackerLight"
         ];
 
         // Add maze properties from the props's passed.
@@ -60,13 +61,12 @@ class MazeLoader {
         this.props.width = parseInt(doc.getAttribute("width"));
         this.props.height = parseInt(doc.getAttribute("height"));
 
-        
-
         DEBUG && console.log("Title: "+(title ? title.innerHTML : 'undefined')+"\nMazeWidth: "+
                     this.props.width+"\nMazeHeight: "+this.props.height);
 
         this.svgMainG = doc.getElementsByTagName("g")[0];
-        DEBUG && console.log("main G: "+this.svgMainG+", childs: "+this.svgMainG.childElementCount);
+        DEBUG && console.log("main G: "+this.svgMainG+", childs: "+
+                this.svgMainG.childElementCount);
 
         this.createScene();
         this.setupRendering();
@@ -125,7 +125,6 @@ class MazeLoader {
 
         // Add ambient and hemispheric light sources.
         this.scene.add( new THREE.AmbientLight( 0x404040 ) );
-        //this.scene.add( new THREE.HemisphereLight(0xdddddd) );
 
         // Add the Point Light, and mark it as a shadow caster
         var pointLight = new THREE.PointLight(0xffffff, 1);
@@ -137,6 +136,7 @@ class MazeLoader {
 
         DEBUG && console.log("Main Light Pos: "+Helper.vecToString( pointLight.position ) );
 
+        this.pointLight = pointLight;
         this.scene.add( pointLight ); 
 
         // Add axis helper
@@ -368,6 +368,47 @@ class MazeLoader {
             poss.length + props.wallWidth, props.wallHeight, props.wallWidth,
             (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
         );
+        
+        // If texture is set, map UVs to every vertex so that whole maze has the
+        // contiguous texture.
+        if( props.mazeTexture ){
+            var scale = (props.mazeTextureScale ? props.mazeTextureScale : 1.0 );
+
+            // Map UV coordinates of the wall.
+            geometry.faceVertexUvs[0] = [];
+
+            // UV Mapper Function. We map by using X and Z coordinates.
+            var getUVs = (x, y, z) => {
+                return {
+                    u: ((poss.center.x + x) / props.width) * scale , 
+                    v: ((poss.center.z + z) / props.height) * scale
+                };
+            };
+
+            geometry.faces.forEach( (face) => {
+                // Get vertices of this face. a, b, and c are indexes 
+                // of the vertices of this face, in a 'vertices' buffer.
+                var v1 = geometry.vertices[face.a];
+                var v2 = geometry.vertices[face.b];
+                var v3 = geometry.vertices[face.c];
+
+                // Map UVs by using x and z axes on a mazespace.
+                var uv1 = getUVs( v1 );
+                var uv2 = getUVs( v2 );
+                var uv3 = getUVs( v3 );
+
+                geometry.faceVertexUvs[0].push([
+                    new THREE.Vector2( uv1.u, uv1.v ),
+                    new THREE.Vector2( uv2.u, uv2.v ),
+                    new THREE.Vector2( uv3.u, uv3.v )
+                ]);
+
+            });
+
+            geometry.uvsNeedUpdate = true;
+        }
+        
+        // Create a cube material, with a texture assigned if one is set.
         var cubeMaterial = new THREE.MeshLambertMaterial({
             color: (props.wallColor==="random" ? Math.random()*0xffffff : props.wallColor),
             side: THREE.DoubleSide
