@@ -6,6 +6,9 @@
     <script src="https://threejs.org/build/three.min.js"></script>
     <script src="https://threejs.org/examples/js/controls/TrackballControls.js"></script>
     <script src="https://threejs.org/examples/js/libs/stats.min.js"></script>
+
+    <script src="helpers.js"></script>
+    <script src="maze.js"></script>
     
     <style>
         body {
@@ -21,13 +24,108 @@
     <br>
     <div id="mazeinfo"></div>
 
-    <script src="maze.js"></script>
     <script>
         function loadFayl( file ){
             loadMazeFromFile(file, "#mazeinfo");
         }
+
+        //============ UI part =============//
+
+        var DEBUG = true;
+        var currentLoader = null;
+
+        function loadMazeDocument(svgDoc, renderDivId){
+            currentLoader = new MazeLoader( 
+                svgDoc, 
+                {
+                    wallHeight: 15,
+                    wallWidth: 6,       
+                    wallLengthExtend: 0, // -3
+                    useShadows: false
+                },
+                {
+                    "div":    renderDivId, 
+                    "width":  parseInt( $(renderDivId).attr("width") ),
+                    "height": parseInt( $(renderDivId).attr("height") )
+                }
+            );
+            currentLoader.render();
+            currentLoader.animate();
+        }
+
+        function loadMaze(svgData, infoDivId, renderDivId){
+            try{
+                if( currentLoader ){
+                    currentLoader.destroy();
+                    $(renderDivId).empty();
+                }
+
+                // Load preview
+                var image = new Image(200, 200);
+                image.src = "data:image/svg+xml;base64,"+window.btoa(svgData);
+                $(infoDivId).append( image );
+                
+                // Load Maze.
+                var parser = new DOMParser();
+                var svgDoc = parser.parseFromString( svgData, "image/svg+xml" );
+
+                loadMazeDocument(svgDoc, renderDivId);
+                
+            } catch(e) {
+                DEBUG && console.log(e);
+            }
+        }
+
+        function loadMazeFromFile(file, infoDivId){
+            // Print the file details
+            $(infoDivId).html( "<p>Name: "+file.name+"<br>Size: "+file.size+"</p>" );
+            DEBUG && console.log("Loading File"+file);
+
+            try{
+                var fr = new FileReader();
+                fr.onload = evt => { loadMaze( evt.target.result, infoDivId, "#renderdiv") };
+                fr.readAsText(file);
+
+            } catch(e) {
+                DEBUG && console.log(e);
+            }
+        }
+         
+        /** 
+         * Gets the raw file from the url specified. Calls a callback with the file received.
+         * @param url - an URL path to a file
+         * @param callback( file ) - a callback with a single File type parameter.
+         */ 
+        function urlToFileData(url, callback) {
+            fetch( url )
+                .then(res => res.blob())
+                .then(res => {
+                    callback( new File( [res], url, {name: url, lastModified: Date.now()} ) );
+                })    
+                .catch(error => {
+                    DEBUG && console.log("Request failed: ", error);
+                })
+        }
+
+        //var DefaultMazePath = 'http://klevas.mif.vu.lt/~rimask/geometrija/maze_1.svg';
+        //var DefaultMazePath = './maze_1.svg';
+        //var DefaultMazePath = 'testMaze.svg';
+
+        $( document ).ready(() => {
+            DEBUG && console.log( "Ready!" );
+            //urlToFileData( DefaultMazePath, file => { loadMazeFromFile( file, '#mazeinfo' ); } );
+            //loadMazeDocument( $('#defsvg')[0].contentDocument, '#renderdiv' );
+
+            var ddd = $('#defsvg')[0];
+            $('#defsvg').on("load", () => {
+                var svgdoc = ddd.contentDocument;
+                console.log("SVGDocument loaded: "+svgdoc);
+
+                loadMazeDocument( svgdoc, '#renderdiv' );
+            });
+        });
+
     </script>
-    <!--embed src="maze_1.svg" type="image/svg+xml" style="display:none" id="defaultsvg"/-->
     <object data="maze_1.svg" type="image/svg+xml" style="display:none" id="defsvg"></object>
   </body>
 </html>      
