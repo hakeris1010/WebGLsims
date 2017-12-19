@@ -194,7 +194,7 @@ destroy(){
  */ 
 
 var conScene = null;
-//const nootText = "https://data.whicdn.com/images/285875168/large.jpg";
+//const nootText = "https://i.imgur.com/g7D9Vfd.jpg";
 const nootText = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Chess_Board.svg/1024px-Chess_Board.svg.png";
 
 function drawConvexScene( rendiv, image ){

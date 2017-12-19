@@ -26,7 +26,7 @@ static getDefault( key ){
     switch(key){
     //highlightPoints: threejs.org/examples/webgl_geometry_convex.html
     case "highlightPoints" : return false;
-    case "vertexCount" : return 50000;
+    case "vertexCount" : return 100000;
 
     case "image" : return "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Chess_Board.svg/1024px-Chess_Board.svg.png";
 
@@ -183,21 +183,6 @@ getMesh(){
     return new THREE.Mesh( this.geometry, this.props.material );
 
     //return this.testMesh();
-}
-
-testMesh(){
-    var texture = new THREE.TextureLoader().load( 'kawaii.jpg' );
-
-    var geometry = new THREE.BoxBufferGeometry( 200, 200, 200, 40, 40, 40 );
-    var material = new THREE.MeshPhongMaterial( { 
-        side: THREE.DoubleSide,
-        color: 0x999999,
-        wireframe: false
-    } ); 
-
-    material.map = texture;
-
-    return new THREE.Mesh( geometry, material );
 }
 
 }
