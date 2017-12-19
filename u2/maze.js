@@ -28,7 +28,7 @@ class MazeLoader {
         // TODO: Implement all these properties.
         var propertiesToCheck = [
             "wallHeight", "wallWidth", "wallLengthExtend", 
-            "wallColor", "groundColor", "mazeTexture", "mazeTextureScale",
+            "wallColor", "groundColor", "mazeTextureURL", "mazeTextureScale",
             "useShadows", "lightIntensity", "lightPosition", "lightOnCamera",
             "enableCameraControls", "mazeRotationSpeed", "bouncingBall",
             "centerFigure", "shortestPathTracker", "trackerSpeed", "trackerLight"
@@ -40,6 +40,13 @@ class MazeLoader {
                 this.props[item] = mazeProps[item];
         } );
 
+        // Output maze properties.
+        console.log("Props: \n"); 
+        for( var prop in this.props ){
+            if( this.props.hasOwnProperty( prop ) )
+                console.log(" "+prop+": " + this.props[ prop ]);
+        }
+
         // Set rendering properties - viewport, and div to render to.
         this.rendProps = {
             "divId" : renderProps.div,
@@ -49,7 +56,7 @@ class MazeLoader {
         
         // Check if we've got a place to render to.
         if( !this.rendProps.divId ){
-            throw "[MazeLoader]: No Div!";
+            throw "[MazeLoader]: No rendering Div specified!";
         } 
 
         DEBUG && console.log("Maze parsing started:\n doc: "+baseDoc+"\n props: "+mazeProps+"\n");
@@ -71,12 +78,77 @@ class MazeLoader {
         this.createScene();
         this.setupRendering();
     }
+     
+    /**
+     * Loads a texture from URL.
+     * @param texURL - URL of the image file to load.
+     * @return a ThreeJS texture object.
+     */ 
+    loadTexture( texURL ){
+        if( !this.textureLoader ){
+            this.textureLoader = new THREE.TextureLoader();
+            loader.setCrossOrigin( "anonymous" ); // To allow download from other servers
+        }
+
+        console.log("[Maze:LoadTexture()]: Loading \""+texURL+"\"");
+        var texture = this.textureLoader.load( texURL, 
+            tex => { 
+                console.log("[Maze:LoadTexture()]: Texture Loaded! ("+tex+")"); 
+            }, 
+            null, 
+            a => { 
+                console.log("[Maze:LoadTexture()]: Error occured! ("+a.type+")"); 
+            } 
+        );
+
+        return texture;
+    }
+
+    /** Loads all needed textures.
+     *  - Stored in object this.textures.
+     */ 
+    setupTextures(){
+        this.textures = {};
+
+        // Set whole maze texture.
+        if(this.props.mazeTextureURL)
+            this.textures.maze = this.loadTexture( this.props.mazeTexture );
+    }
+
+    /** Creates all needed ThreeJS materials.
+     *  - Stored in object this.materials.
+     */ 
+    setupMaterials(){
+        this.materials = {};
+
+        // Set maze wall material. 
+        var mazeWall = new THREE.MeshLambertMaterial({
+            side: THREE.DoubleSide,
+        });
+
+        // If texture is present, assign it. If not, set color according to props.
+        if( this.textures.maze )
+            mazeWall.map = this.textures.maze;
+        else{
+            mazeWall.color = (this.props.wallColor === "random" ? 
+                Math.random()*0xffffff : this.props.wallColor);
+        }
+
+        console.log("Setting mazeWall texture ("+mazeWall+")");
+        this.materials.mazeWall = mazeWall;
+    }
 
     /** 
      * Creates a scene containing all maze elements.
      */ 
     createScene(){
-        // ThreeJS scene containing the maze.
+        // Load all needed textures.
+        this.setupTextures();
+
+        // Set All materials that will be used.
+        this.setupMaterials();
+
+        // Create a ThreeJS scene containing the maze.
         this.scene = new THREE.Scene();
 
         // Add basic elements to scene (Lights, etc).
@@ -123,7 +195,7 @@ class MazeLoader {
         // Add the plane to the scene
         this.scene.add(plane);
 
-        // Add ambient and hemispheric light sources.
+        // Add ambient light sources.
         this.scene.add( new THREE.AmbientLight( 0x404040 ) );
 
         // Add the Point Light, and mark it as a shadow caster
@@ -364,57 +436,27 @@ class MazeLoader {
         poss.length += props.wallLengthExtend;
         
         // Create a Wall (Using the ThreeJS's Cube).
-        var cubeGeometry = new THREE.BoxGeometry( 
+        var geometry = new THREE.BoxGeometry( 
             poss.length + props.wallWidth, props.wallHeight, props.wallWidth,
             (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
         );
         
-        // If texture is set, map UVs to every vertex so that whole maze has the
-        // contiguous texture.
-        if( props.mazeTexture ){
-            var scale = (props.mazeTextureScale ? props.mazeTextureScale : 1.0 );
-
-            // Map UV coordinates of the wall.
-            geometry.faceVertexUvs[0] = [];
-
-            // UV Mapper Function. We map by using X and Z coordinates.
-            var getUVs = (x, y, z) => {
-                return {
-                    u: ((poss.center.x + x) / props.width) * scale , 
-                    v: ((poss.center.z + z) / props.height) * scale
-                };
-            };
-
-            geometry.faces.forEach( (face) => {
-                // Get vertices of this face. a, b, and c are indexes 
-                // of the vertices of this face, in a 'vertices' buffer.
-                var v1 = geometry.vertices[face.a];
-                var v2 = geometry.vertices[face.b];
-                var v3 = geometry.vertices[face.c];
-
-                // Map UVs by using x and z axes on a mazespace.
-                var uv1 = getUVs( v1 );
-                var uv2 = getUVs( v2 );
-                var uv3 = getUVs( v3 );
-
-                geometry.faceVertexUvs[0].push([
-                    new THREE.Vector2( uv1.u, uv1.v ),
-                    new THREE.Vector2( uv2.u, uv2.v ),
-                    new THREE.Vector2( uv3.u, uv3.v )
-                ]);
-
-            });
-
-            geometry.uvsNeedUpdate = true;
-        }
-        
         // Create a cube material, with a texture assigned if one is set.
-        var cubeMaterial = new THREE.MeshLambertMaterial({
-            color: (props.wallColor==="random" ? Math.random()*0xffffff : props.wallColor),
-            side: THREE.DoubleSide
-        });
+        var material = this.materials.mazeWall;
 
-        var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+        // If no texture, assign random color, if specified.
+        // (If color not random, it's already set in the material).
+        if( !material.map ){
+            if( this.props.wallColor === "random" ){
+                material = material.clone(); 
+                material.color = Math.random() * 0xffffff; 
+            }
+        }
+
+        // Create final mesh.
+        var cube = new THREE.Mesh(geometry, material);
+
+        // Setup shadowing.
         cube.castShadow = true;
         cube.receiveShadow = true;
 
@@ -432,6 +474,48 @@ class MazeLoader {
                     "\n Position vec: "+Helper.vecToString(cube.position) );
         */
         return cube;
+    }
+
+    /**
+     * Sets UV coordinates, if texture usage is set.
+     * - Maps UVs to every vertex so that whole maze has the contiguous texture.
+     * @param mesh - fully constructed mesh.
+     */ 
+    getUVCoords( mesh ){
+        var scale = (props.mazeTextureScale ? props.mazeTextureScale : 1.0 );
+
+        // Map UV coordinates of the wall.
+        geometry.faceVertexUvs[0] = [];
+
+        // UV Mapper Function. We map by using X and Z coordinates.
+        var getUVs = (x, y, z) => {
+            return {
+                u: ((poss.center.x + x) / props.width) * scale , 
+                v: ((poss.center.z + z) / props.height) * scale
+            };
+        };
+
+        geometry.faces.forEach( (face) => {
+            // Get vertices of this face. a, b, and c are indexes 
+            // of the vertices of this face, in a 'vertices' buffer.
+            var v1 = geometry.vertices[face.a];
+            var v2 = geometry.vertices[face.b];
+            var v3 = geometry.vertices[face.c];
+
+            // Map UVs by using x and z axes on a mazespace.
+            var uv1 = getUVs( v1 );
+            var uv2 = getUVs( v2 );
+            var uv3 = getUVs( v3 );
+
+            geometry.faceVertexUvs[0].push([
+                new THREE.Vector2( uv1.u, uv1.v ),
+                new THREE.Vector2( uv2.u, uv2.v ),
+                new THREE.Vector2( uv3.u, uv3.v )
+            ]);
+
+        });
+
+        geometry.uvsNeedUpdate = true;
     }
 
     /** 
