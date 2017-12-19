@@ -24,10 +24,12 @@ class TexturedConvex
 {
 static getDefault( key ){
     switch(key){
-    //highlightPoints: https://threejs.org/examples/webgl_geometry_convex.html
+    //highlightPoints: threejs.org/examples/webgl_geometry_convex.html
     case "highlightPoints" : return false;
-    case "image" : return "https://www.wpclipart.com/recreation/games/chess/chessboard.png";
     case "vertexCount" : return 50000;
+
+    case "image" : return "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Chess_Board.svg/1024px-Chess_Board.svg.png";
+
     case "material" : 
         return new THREE.MeshPhongMaterial( { 
             side: THREE.DoubleSide,

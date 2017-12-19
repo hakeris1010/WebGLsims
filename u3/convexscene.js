@@ -194,40 +194,31 @@ destroy(){
  */ 
 
 var conScene = null;
+//const nootText = "https://data.whicdn.com/images/285875168/large.jpg";
+const nootText = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Chess_Board.svg/1024px-Chess_Board.svg.png";
 
-function drawConvexScene( rendiv ){
+function drawConvexScene( rendiv, image ){
     console.log("Constructing...");
     conScene = new ConvexScene( rendiv, {
-        convexTexture: "kawaii.jpg" 
-        //convexTexture: "https://s1.zerochan.net/Izumi.Sagiri.600.2092911.jpg"
+        convexTexture: image
     } );
 
     console.log("Starting drawing!");
     conScene.animate();
-
-    //testScene( rendiv );
 }
 
-// Gets the image's data url from <img> tag.
-function getImagePixelData(img) {
-    // Create an empty canvas element
-    var canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
+function createConvexScene( rendiv ){
+    // Fetch image (to binary blob), and convert it to Data URL.
+    fetch( nootText ).then( res => { 
+        return res.blob(); 
+    } ).then( blob => {
+        var url = URL.createObjectURL( blob );
+        console.log("Loaded image URL: "+url);
 
-    // Copy the image contents to the canvas
-    var ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
+        drawConvexScene( rendiv, url );
+    } );
 
-    var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    return imgData;
-
-    /*var dataURL = canvas.toDataURL("image/png");
-
-    console.log("Got data url: "+dataURL);
-    return dataURL;
-    */
-    //return dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+    //testScene( rendiv );
 }
 
 // Testing ThreeJS capabilities.
