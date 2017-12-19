@@ -123,18 +123,21 @@ class MazeLoader {
 
         // Set maze wall material. 
         var mazeWall = new THREE.MeshLambertMaterial({
-            side: THREE.DoubleSide,
+            side: THREE.DoubleSide
         });
 
         // If texture is present, assign it. If not, set color according to props.
-        if( this.textures.maze )
+        if( this.textures.maze ){
             mazeWall.map = this.textures.maze;
+        }
         else{
-            mazeWall.color = (this.props.wallColor === "random" ? 
-                Math.random()*0xffffff : this.props.wallColor);
+            mazeWall.color = new THREE.Color( 
+                this.props.wallColor === "random" ? 
+                Math.random()*0xffffff : this.props.wallColor 
+            );
         }
 
-        console.log("Setting mazeWall texture ("+mazeWall+")");
+        console.log("Setting mazeWall material ("+mazeWall.constructor.name+")");
         this.materials.mazeWall = mazeWall;
     }
 
@@ -449,12 +452,12 @@ class MazeLoader {
         if( !material.map ){
             if( this.props.wallColor === "random" ){
                 material = material.clone(); 
-                material.color = Math.random() * 0xffffff; 
+                material.color = new THREE.Color( Math.random() * 0xffffff ); 
             }
         }
 
         // Create final mesh.
-        var cube = new THREE.Mesh(geometry, material);
+        var cube = new THREE.Mesh( geometry, material );
 
         // Setup shadowing.
         cube.castShadow = true;
