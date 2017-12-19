@@ -160,10 +160,18 @@ assignUVs() {
 
 // Create a loader and load a texture from URL.
 // And apply this texture to current material.
-setTextureFromImage( image ){
-    DEBUG && console.log("[Convex]: Loading a texture: \""+image+"\"");
+setTextureFromImage( imageURL ){
+    DEBUG && console.log("[Convex]: Loading a texture: \""+imageURL+"\"");
 
-    var texture = new THREE.TextureLoader().load( image );
+    var loader = new THREE.TextureLoader();
+    loader.setCrossOrigin( "anonymous" ); // To allow download from other servers
+
+    var texture = loader.load( imageURL, 
+        a => { console.log("[Convex.LoadTexture()]: Texture Loaded! ("+a+")"); }, // onLoad
+        null, // onProgress
+        a => { console.log("[Convex.LoadTexture()]: Error occured! ("+a.type+")"); } // onError
+    );
+
 	this.props.material.map = texture; 
 }
 

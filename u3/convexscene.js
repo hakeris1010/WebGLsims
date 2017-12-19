@@ -35,7 +35,7 @@ addBasicSceneElements(){
     var DEBUG = true;
     
     var texConv = new TexturedConvex( {
-        image: "kawaii.jpg"
+        image: this.props.convexTexture
     } ).getMesh();
 
     texConv.receiveShadow = true;
@@ -198,7 +198,8 @@ var conScene = null;
 function drawConvexScene( rendiv ){
     console.log("Constructing...");
     conScene = new ConvexScene( rendiv, {
-        convexTextureRaw: getImagePixelData( $('#texture')[0] )
+        convexTexture: "kawaii.jpg" 
+        //convexTexture: "https://s1.zerochan.net/Izumi.Sagiri.600.2092911.jpg"
     } );
 
     console.log("Starting drawing!");
@@ -250,7 +251,6 @@ function testScene( rendiv ){
         scene = new THREE.Scene();
 
         var texture = new THREE.TextureLoader().load( 'kawaii.jpg' );
-            //"https://s1.zerochan.net/Izumi.Sagiri.600.2092911.jpg" );
 
         var geometry = new THREE.BoxBufferGeometry( 200, 200, 200, 40, 40, 40 );
         var material = new THREE.MeshLambertMaterial( { 
