@@ -160,10 +160,11 @@ class MazeLoader {
                 }) );
             } );
 
-            console.log("Created "+this.materials.mazeWall_Textured.length+" textured materials.");
+            console.log("Created "+this.materials.mazeWall_Textured.length+
+                        " textured materials.");
 
             // Fill remaining materials with the first one.
-            for(var i = this.materials.mazeWall_Textured.length; i < 5; i++){
+            for(var i = this.materials.mazeWall_Textured.length; i < 6; i++){
                 this.materials.mazeWall_Textured.push(  
                     this.materials.mazeWall_Textured[ 0 ].clone()
                 );
@@ -264,7 +265,7 @@ class MazeLoader {
         this.scene.add( new THREE.AmbientLight( 0x404040 ) );
 
         // Add the Point Light, and mark it as a shadow caster
-        var pointLight = new THREE.PointLight(0xffffff, 1);
+        var pointLight = new THREE.PointLight(0xffffff, 0.5);
         pointLight.castShadow = true;
 
         pointLight.position.x = props.mazeStart.x + props.width/2;
@@ -327,8 +328,8 @@ class MazeLoader {
         
         // Create a Wall (Using the ThreeJS's Cube).
         var geometry = new THREE.BoxGeometry( 
-            poss.length + props.wallWidth, props.wallHeight, props.wallWidth,
-            (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4
+            poss.length + props.wallWidth, props.wallHeight, props.wallWidth
+            /*, (poss.length + props.wallWidth)/4, props.wallHeight/4, props.wallWidth/4*/
         );
         
         // Create a cube material, with a texture assigned if one is set.
@@ -377,7 +378,7 @@ class MazeLoader {
         // When cube's Model matrix has been set, map UV coordinates, 
         // if texture has been assigned. This uses cube's World Matrix to map UV.
         if( cube.material.map ){
-            this.setUVCoords( cube );
+            this.setUVCoords( cube, {fixBoxMaterials: true} );
         }
 
         return cube;
@@ -402,13 +403,17 @@ class MazeLoader {
      *            the .matrixWorld attribute.
      *
      * @param mesh - fully constructed mesh.
-     * @param uvSetter (optional):
+     * @param props - specific propercies:
+     *  - fixBoxMaterials:
+     *      - If set, will assign proper materials to each face.
+     *
+     *  - uvSetter:
      *      - a specific callback which takes (x, y, z) of the vertex, 
      *        and returns U and V coordinates.
      *
      *      - If not set, defaults to Maze's continuous texture generator.
      */ 
-    setUVCoords( mesh, uvSetter ){
+    setUVCoords( mesh, props = {} ){
         // Update (or create) the world matrix of this object, applying the 
         // position, rotation and scaling which were set before.
         //
@@ -446,14 +451,28 @@ class MazeLoader {
         geometry.faceVertexUvs[0] = [];
 
         // UV Mapper Function. We map by using X and Z coordinates.
-        var getUVs = ( uvSetter ? uvSetter : ( (x, y, z) => {
+        var getUVs = ( props.uvSetter ? props.uvSetter : ( (x, y, z, face) => {
             return {
                 u: ((x - props.mazeStart.x) / props.width) * repeat , 
                 v: ((z - props.mazeStart.z) / props.height) * repeat
             };
+            //if( !props.fixBoxMaterials || face == 2 )
+            /*if( face == 1 || face == 3 )
+                return {
+                    u: ((x - props.mazeStart.x) / props.width) * repeat , 
+                    v: ((y - props.mazeStart.y) / props.wallHeight) * repeat
+                };*/
+            // face == 0 || face == 5
+            /*return {
+                u: (Math.abs(x - props.mazeStart.x) / props.width) * repeat , 
+                v: (Math.abs(y - props.mazeStart.y) / props.wallHeight) * repeat
+            } */
         }) );
 
-        geometry.faces.forEach( (face) => {
+        for( var i = 0; i < geometry.faces.length; i++ ){
+            var face = geometry.faces[ i ];
+            //console.log("Face: "+i);
+
             // Get vertices of this face. a, b, and c are indexes 
             // of the vertices of this face, in a 'vertices' buffer,
             //
@@ -465,16 +484,16 @@ class MazeLoader {
             var v3 = geometry.vertices[face.c]; //.applyMatrix4( mesh.matrixWorld );
 
             // Map UVs by using x and z axes on a mazespace.
-            var uv1 = getUVs( v1.x, v1.y, v1.z );
-            var uv2 = getUVs( v2.x, v2.y, v2.z );
-            var uv3 = getUVs( v3.x, v3.y, v3.z );
+            var uv1 = getUVs( v1.x, v1.y, v1.z, i );
+            var uv2 = getUVs( v2.x, v2.y, v2.z, i );
+            var uv3 = getUVs( v3.x, v3.y, v3.z, i );
 
             geometry.faceVertexUvs[0].push([
                 new THREE.Vector2( uv1.u, uv1.v ),
                 new THREE.Vector2( uv2.u, uv2.v ),
                 new THREE.Vector2( uv3.u, uv3.v )
             ]);
-        });
+        }
 
         geometry.uvsNeedUpdate = true;
     }
