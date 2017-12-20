@@ -30,7 +30,7 @@ class MazeLoader {
         // TODO: Implement all these properties.
         var propertiesToCheck = [
             "wallHeight", "wallWidth", "wallLengthExtend", 
-            "wallColor", "groundColor", "mazeTextureURL", "mazeTextureRepeat",
+            "wallColor", "groundColor", "mazeTextureURLs", "mazeTextureRepeat",
             "useShadows", "lightIntensity", "lightPosition", "lightOnCamera",
             "enableCameraControls", "mazeRotationSpeed", "bouncingBall",
             "centerFigure", "shortestPathTracker", "trackerSpeed", "trackerLight"
@@ -114,15 +114,24 @@ class MazeLoader {
     setupTextures(){
         this.textures = {};
 
-        // Set whole maze texture.
-        if(this.props.mazeTextureURL){
-            var text = this.loadTexture( this.props.mazeTextureURL, (tex) => { } );
-            text.wrapS = text.wrapT = THREE.RepeatWrapping;
-            //text.offset.set( 0, 0 );
-            //text.repeat.set( 2, 2 );
+        // Set maze textures - different texture for each of maze wall's sides:
+        //  - Roof (same as ground)
+        //  - All other sides.
+        if(this.props.mazeTextureURLs && this.props.mazeTextureURLs.length > 0){
+            this.textures.maze = [];
 
-            this.textures.maze = text;
-            this.textures.ground = text;
+            // Load every texture.
+            this.props.mazeTextureURLs.forEach( item => {
+                var text = this.loadTexture( item, (tex) => { } );
+                text.wrapS = text.wrapT = THREE.RepeatWrapping;
+                //text.offset.set( 0, 0 );
+                //text.repeat.set( 2, 2 );
+
+                this.textures.maze.push( text );
+            } );
+
+            // Ground texture is the first one - the same as the wall's roof texture.
+            this.textures.ground = this.textures.maze[ 0 ];
         }
     }
 
@@ -133,25 +142,36 @@ class MazeLoader {
         this.materials = {};
 
         // ================================== //
-        // Set maze wall material. 
-        //
-        var mazeWall = new THREE.MeshLambertMaterial({
-            side: THREE.DoubleSide
-        });
-
-        // If texture is present, assign it. If not, set color according to props.
+        // If no texture, material will be the same Mesh Lambert Colored Material.
+        this.materials.mazeWall_NoTexture = new THREE.MeshLambertMaterial( {
+            side: THREE.DoubleSide,
+            color: this.props.wallColor === "random" ?  
+                   Math.random()*0xffffff : this.props.wallColor 
+        } );
+        
+        // If texture is present, create 5 different materials for each face. 
         if( this.textures.maze ){
-            mazeWall.map = this.textures.maze;
-        }
-        else{
-            mazeWall.color = new THREE.Color( 
-                this.props.wallColor === "random" ? 
-                Math.random()*0xffffff : this.props.wallColor 
-            );
+            this.materials.mazeWall_Textured = [];
+
+            this.textures.maze.forEach( item => {
+                this.materials.mazeWall_Textured.push( new THREE.MeshLambertMaterial( {
+                    side: THREE.DoubleSide,
+                    map: item
+                }) );
+            } );
+
+            console.log("Created "+this.materials.mazeWall_Textured.length+" textured materials.");
+
+            // Fill remaining materials with the first one.
+            for(var i = this.materials.mazeWall_Textured.length; i < 5; i++){
+                this.materials.mazeWall_Textured.push(  
+                    this.materials.mazeWall_Textured[ 0 ].clone()
+                );
+            }
+            console.log("After fill: "+this.materials.mazeWall_Textured.length);
         }
 
-        console.log("Setting mazeWall material ("+mazeWall.constructor.name+")");
-        this.materials.mazeWall = mazeWall;
+        console.log("Setting mazeWall material.");
 
         // ================================== //
         // Set the ground plane material. 
@@ -196,14 +216,12 @@ class MazeLoader {
         // Iterate through all the elements of the <g> section, and convert 
         // each of them to properly positioned maze lines. 
         // Then for each of them create a 3D Wall Box. 
-        SVGLineProperizer.properizeSVGElements( this.svgMainG.children, elem => {
+        this.properizeMazeElements( this.svgMainG.children, elem => {
             switch(elem.type){
             case "line":
                 this.scene.add( this.createWallBoxFromLine( elem.data ) );
             }
-        }, {
-            wallWidth: this.props.wallWidth
-        } );
+        });
 
         this.ready = true;
     }
@@ -314,19 +332,32 @@ class MazeLoader {
         );
         
         // Create a cube material, with a texture assigned if one is set.
-        var material = this.materials.mazeWall;
+        var cube;
 
-        // If no texture, assign random color, if specified.
-        // (If color not random, it's already set in the material).
-        if( !material.map ){
+        // Check if we have textured materials.
+        if( typeof this.materials.mazeWall_Textured !== 'undefined' && 
+            this.materials.mazeWall_Textured.length > 0 )
+        {
+            console.log("Setting textured materials.");
+
+            // Use the MultiMaterial feature of ThreeJs, to assign materials
+            // to faces from an array.
+            cube = new THREE.Mesh( geometry, this.materials.mazeWall_Textured );
+        }
+        // If no textures, just use colored materials.
+        else{
+            console.log("Setting Non-Textured (Simple) materials.");
+
+            let material = this.materials.mazeWall_NoTexture;
+
+            // Setup random color.
             if( this.props.wallColor === "random" ){
                 material = material.clone(); 
                 material.color = new THREE.Color( Math.random() * 0xffffff ); 
             }
-        }
 
-        // Create final mesh.
-        var cube = new THREE.Mesh( geometry, material );
+            cube = new THREE.Mesh( geometry, material );
+        }
 
         // Setup shadowing.
         cube.castShadow = true;
@@ -590,6 +621,192 @@ class MazeLoader {
         if(this.animationID)
             cancelAnimationFrame( this.animationID );
     }
+
+
+
+    //========================================================//
+
+    //========================================================//
+
+    //========================================================//
+
+    //========================================================//
+
+    /** 
+     * Makes the properly positioned maze lines from SVG nodes passed.
+     *  - Fixes the corner collisions, to make corners of maze walls look nice.
+     *  @param svgNodeArray - an array-like Node collection, containing SVG nodes.
+     *  @param elemCallback - an optional callback to call after each 
+     *                        successfully converted element.
+     */
+    properizeMazeElements( svgNodeArray, elemCallback ){
+        var DEBUG = true;
+
+        var nodes = svgNodeArray;
+        var lines = [];
+
+        for(var i=0; i<nodes.length; i++){
+            var node = nodes[i];
+
+            switch( node.nodeName ){
+            case "line":
+                // Get line point coordinates from attributes
+                var poss = { 
+                    x1: parseInt( node.getAttribute("x1") ),
+                    x2: parseInt( node.getAttribute("x2") ),
+                    y1: parseInt( node.getAttribute("y1") ),
+                    y2: parseInt( node.getAttribute("y2") ),
+                };
+                var properizedLines = this.fixCollisionsForLine( poss, lines, 0 );
+
+                // If no collisions were found, put current line to fixed lines array..
+                if(properizedLines){
+                    properizedLines.forEach( elem => {
+                        lines.push( elem );
+                    } );
+                }
+                break;
+            }
+        }
+
+        // Call a callback for each converted line.
+        DEBUG && console.log("\nCount of Final Lines: "+lines.length+"\n");
+        lines.forEach( elem => {
+            if(elemCallback) {
+                elemCallback( {
+                    type: "line", 
+                    data: elem
+                } );
+            }
+        } );
+    }
+
+    /** 
+     * Fixes the collisions between lines by splitting the current line.
+     * @param currentLine - the line being modified to fix collisions.
+     * @param otherLines - an array of lines to which the currentLine will be 
+     *      compared to find collisions.
+     *      NOTE: this array may be modified to fix some already existing collisions.
+     * @param startOn - start iterating over otherLines on this index. Default 0.
+     * @param recLevel - recursion level. Reserved only for this function itself.
+     *
+     * @return an array of lines got by splitting the current line to fix collisions.
+     *
+     * FIXME: Lines collide when wallWidth is higher than wallLength.
+     */ 
+    fixCollisionsForLine( currentLine, otherLines, startOn=0, recLevel=0 ){
+        var DEBUG = false;
+
+        var lines = otherLines;
+        var retlines = [];
+        var segments = [];
+         
+        var poss = currentLine;
+        poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
+
+        var recMargin = "*".repeat(recLevel+1);
+        DEBUG && console.log("\n"+recMargin+"Properizing a Line. Lines.len:"+
+                    lines.length+", startOn: "+startOn);
+
+        // Check if there exists some points which could make collisions, and fix'em.
+        var i;
+        for(i = startOn; i < lines.length; i++) {
+            var wallWidth = this.props.wallWidth;
+
+            // Check for intersection between lines.
+            var interpt = Helper.getLineIntersection( lines[i], poss, true );
+
+            // Fix intersection by splitting line into two, if possible.
+            if( interpt ){
+                var seg1len = 0, seg2len = 0;
+
+                // Check if lines are not overlapping, but have an intersection point.
+                if(!interpt.overlap){
+                    seg1len = Math.sqrt( (poss.x1 - interpt.x)*(poss.x1 - interpt.x) +
+                                         (poss.y1 - interpt.y)*(poss.y1 - interpt.y) );
+
+                    seg2len = Math.sqrt( (poss.x2 - interpt.x)*(poss.x2 - interpt.x) +
+                                         (poss.y2 - interpt.y)*(poss.y2 - interpt.y) );
+
+                    DEBUG && console.log(recMargin+
+                        "Found collision: intersection: ("+interpt.x+","+interpt.y+
+                        "), seg1_len: "+seg1len+", seg2_len: "+seg2len);
+
+                    // If length exceeds half of wall's width, the segment is visible.
+                    if(seg1len > wallWidth/2){
+                        segments.push( {
+                            x1: poss.x1,
+                            y1: poss.y1,
+                            x2: interpt.x - Math.cos( poss.rotation ) * wallWidth,
+                            y2: interpt.y - Math.sin( poss.rotation ) * wallWidth,
+                            rotation: poss.rotation,
+                        } ); 
+                    }
+
+                    if(seg2len > wallWidth/2){
+                        segments.push( {
+                            x1: interpt.x + Math.cos( poss.rotation ) * wallWidth,
+                            y1: interpt.y + Math.sin( poss.rotation ) * wallWidth,
+                            x2: poss.x2,
+                            y2: poss.y2,
+                            rotation: poss.rotation,
+                        } );
+                    }
+                }
+                // Lines are collinear, and Overlap exists.
+                else{
+                    DEBUG && console.log(recMargin+"Found overlap: start: ("+
+                        interpt.startX+","+interpt.startY+"), end: ("+interpt.endX+
+                        ","+interpt.endY+"), inside: "+interpt.inside);
+
+                    // If one segment is inside the other, one of them must be removed.
+                    if(interpt.inside == 1){ // First inside (lines[i] is inside poss).
+                        // Remove lines[i], and continue the collision search.
+                        lines.splice(i, 1);
+                    }
+                    else if(interpt.inside == 1){ // Second inside (poss is inside lines[i]).
+                        // Just return empty array, because this line can be skipped.
+                        return retlines;
+                    }
+                    else{ // No elements are inside each other, but we have an overlap.
+                        // Just remove lines[i], and start properizing new line,
+                        // which encompasses both lines[i] and poss.
+                        lines.splice(i, 1);
+
+                        var seg = interpt.wholeLine;
+                        seg.rotation = poss.rotation;
+                        segments.push(seg);
+                    }
+                }
+                
+                break;
+            }
+        }
+
+        // Now for each segment recursively call this fixer function.
+        segments.forEach( elem => {
+            var recursiveRet = this.fixCollisionsForLine( elem, lines, i, recLevel+1 );
+            if(recursiveRet){
+                DEBUG && console.log(recMargin+"Got from recursion: "+recursiveRet.length);
+                recursiveRet.forEach( el => { retlines.push(el); } );
+            }
+        } );
+
+        // If no collisions were found - no segmentations were made. 
+        if(!retlines.length) 
+            retlines.push(poss); // Just push the unmodified line which was passed.
+
+        DEBUG && console.log(recMargin+ "End. lines.length: "+lines.length+
+            ", retlines.lenght: "+retlines.length+", retlines:");
+        retlines.forEach( el => {
+            DEBUG && console.log(recMargin+" p1=("+el.x1+","+el.y1+
+                "), p2=("+el.x2+","+el.y2+"), rot="+el.rotation);
+        } );
+
+        return retlines;
+    }
+
+
 }
 
 
@@ -670,13 +887,14 @@ class SVGLineProperizer{
      * FIXME: Lines collide when wallWidth is higher than wallLength.
      */ 
     static fixCollisionsForLine( currentLine, otherLines, props, startOn=0, recLevel=0 ){
-        var DEBUG = false;
+        var DEBUG = true;
 
         var lines = otherLines;
         var retlines = [];
         var segments = [];
          
         var poss = currentLine;
+        var wallWidth = props.wallWidth;
         poss.rotation = Math.atan( Math.abs( (poss.y2 - poss.y1) / (poss.x2 - poss.x1) ) );
 
         var recMargin = "*".repeat(recLevel+1);
@@ -686,8 +904,6 @@ class SVGLineProperizer{
         // Check if there exists some points which could make collisions, and fix'em.
         var i;
         for(i = startOn; i < lines.length; i++) {
-            var wallWidth = props.wallWidth;
-
             // Check for intersection between lines.
             var interpt = Helper.getLineIntersection( lines[i], poss, true );
 

@@ -42,7 +42,9 @@
                     wallWidth: 6,       
                     wallLengthExtend: 0, // -3
                     useShadows: false,
-                    mazeTextureURL: "https://i.imgur.com/g7D9Vfd.jpg"
+                    mazeTextureURLs: [
+                        "https://i.imgur.com/g7D9Vfd.jpg"
+                    ]
                 },
                 {
                     "div":    renderDivId, 
@@ -50,6 +52,16 @@
                     "height": parseInt( $(renderDivId).attr("height") )
                 }
             );
+            /*
+                mazeTextureURLs: [
+                    "https://i.imgur.com/g7D9Vfd.jpg"
+                    "https://i.imgur.com/PTJE7kl.jpg",
+                    "https://i.imgur.com/5tbvtzG.jpg",
+                    "https://i.imgur.com/9CNu7CC.jpg",
+                    "https://i.imgur.com/NIXO11W.jpg"
+                ]
+            */
+
             currentLoader.render();
             currentLoader.animate();
         }
