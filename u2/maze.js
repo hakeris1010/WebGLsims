@@ -375,10 +375,55 @@ class MazeLoader {
         // Rotate the cube around the Y (up) axis counter-clockwise.
         cube.rotation.y = poss.rotation;
         
+        // Set Texture repeat coefficient.
+        var repeat = (props.mazeTextureRepeat ? props.mazeTextureRepeat : 1.0 ); 
+
         // When cube's Model matrix has been set, map UV coordinates, 
-        // if texture has been assigned. This uses cube's World Matrix to map UV.
+        // if texture has been assigned. This uses cube face's material index
+        // to find out on which side it is, to map an UV.
         if( cube.material.map ){
-            this.setUVCoords( cube, {fixBoxMaterials: true} );
+            this.setUVCoords( cube, { "uvSetter": ((x, y, z, matInd) => {
+                /*console.log("vertex("+x+", "+y+", "+z+").materialIndex: " + matInd+
+                            "\nPoss.rotation: "+poss.rotation);*/
+
+                // Top or bottom side
+                if( matInd === 2 || matInd === 3 ){
+                    return {
+                        u: ((x - props.mazeStart.x) / props.width) * repeat , 
+                        v: ((z - props.mazeStart.z) / props.height) * repeat
+                    };
+                }
+                /*&& cube.rotation.y > Math.PI/4 && cube.rotation.y < Math.PI*1.75) 
+                    ||
+                    ((matInd === 0 || matInd === 1) 
+                     &&
+                    && cube.rotation.y > Math.PI/4 && cube.rotation.y < Math.PI*1.75 
+                     cube.rotation.y <= Math.PI/4 && cube.rotation.y >= Math.PI*1.75) 
+                    (matInd === 0 || matInd === 1)   
+                */
+                // Left sides
+                if( 
+                     poss.rotation >= 0.25 * Math.PI || poss.rotation >= -0.75 * Math.PI  
+                ) {
+                    //return { u: 0.1, v: 0.1 };
+                    /*return {
+                    u: ((z - props.mazeStart.z) / props.width) * repeat , 
+                    v: ((y - props.mazeStart.y) / props.wallHeight) * repeat 
+                } */
+                    return {
+                        u: ((x - props.mazeStart.x) / props.width) * repeat , 
+                        v: ((y - props.mazeStart.y) / props.wallHeight) * repeat
+                    };
+                     
+                    //return null;
+                }
+
+                // Right sides
+                return {
+                    u: ((z - props.mazeStart.z) / props.width) * repeat , 
+                    v: ((y - props.mazeStart.y) / props.wallHeight) * repeat 
+                };
+            }) } );
         }
 
         return cube;
@@ -408,12 +453,13 @@ class MazeLoader {
      *      - If set, will assign proper materials to each face.
      *
      *  - uvSetter:
-     *      - a specific callback which takes (x, y, z) of the vertex, 
+     *      - a specific callback which takes (x, y, z, faceMaterialIndex) 
+     *        (coords of the vertex, and current face's mat.index), 
      *        and returns U and V coordinates.
      *
      *      - If not set, defaults to Maze's continuous texture generator.
      */ 
-    setUVCoords( mesh, props = {} ){
+    setUVCoords( mesh, uvProps ){
         // Update (or create) the world matrix of this object, applying the 
         // position, rotation and scaling which were set before.
         //
@@ -450,28 +496,24 @@ class MazeLoader {
         // Map UV coordinates of the wall.
         geometry.faceVertexUvs[0] = [];
 
+        /*if(props){
+            console.log("UV Props: \n"); 
+            for( var prop in this.props ){
+                if( this.props.hasOwnProperty( prop ) )
+                    console.log(" "+prop+": " + this.props[ prop ]);
+            }
+        }*/
+
         // UV Mapper Function. We map by using X and Z coordinates.
-        var getUVs = ( props.uvSetter ? props.uvSetter : ( (x, y, z, face) => {
+        var getUVs = ((uvProps && uvProps.uvSetter) ? uvProps.uvSetter : ( (x, y, z, face) => {
             return {
                 u: ((x - props.mazeStart.x) / props.width) * repeat , 
                 v: ((z - props.mazeStart.z) / props.height) * repeat
             };
-            //if( !props.fixBoxMaterials || face == 2 )
-            /*if( face == 1 || face == 3 )
-                return {
-                    u: ((x - props.mazeStart.x) / props.width) * repeat , 
-                    v: ((y - props.mazeStart.y) / props.wallHeight) * repeat
-                };*/
-            // face == 0 || face == 5
-            /*return {
-                u: (Math.abs(x - props.mazeStart.x) / props.width) * repeat , 
-                v: (Math.abs(y - props.mazeStart.y) / props.wallHeight) * repeat
-            } */
         }) );
 
         for( var i = 0; i < geometry.faces.length; i++ ){
             var face = geometry.faces[ i ];
-            //console.log("Face: "+i);
 
             // Get vertices of this face. a, b, and c are indexes 
             // of the vertices of this face, in a 'vertices' buffer,
@@ -484,9 +526,9 @@ class MazeLoader {
             var v3 = geometry.vertices[face.c]; //.applyMatrix4( mesh.matrixWorld );
 
             // Map UVs by using x and z axes on a mazespace.
-            var uv1 = getUVs( v1.x, v1.y, v1.z, i );
-            var uv2 = getUVs( v2.x, v2.y, v2.z, i );
-            var uv3 = getUVs( v3.x, v3.y, v3.z, i );
+            var uv1 = getUVs( v1.x, v1.y, v1.z, face.materialIndex );
+            var uv2 = getUVs( v2.x, v2.y, v2.z, face.materialIndex );
+            var uv3 = getUVs( v3.x, v3.y, v3.z, face.materialIndex );
 
             geometry.faceVertexUvs[0].push([
                 new THREE.Vector2( uv1.u, uv1.v ),
